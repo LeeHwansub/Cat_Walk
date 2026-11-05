@@ -1,4 +1,4 @@
-import { defaultAppearance, isHexColor, isPattern, isStage, type CatAppearance } from '../cat/appearance';
+import { clampBuild, clampSize, defaultAppearance, isHexColor, isPattern, isStage, type CatAppearance } from '../cat/appearance';
 
 /** localStorage와 같은 모양의 저장소. 테스트에서 메모리 저장소로 바꿔 끼운다. */
 export interface KeyValueStore {
@@ -42,13 +42,16 @@ function sanitize(raw: unknown): SaveData | null {
   const cat = isRecord(raw.cat) ? raw.cat : {};
   const settings = isRecord(raw.settings) ? raw.settings : {};
   const pos = isRecord(raw.position) && finite(raw.position.x) && finite(raw.position.z) ? { x: raw.position.x, z: raw.position.z } : null;
+  const stage = isStage(cat.stage) ? cat.stage : def.cat.stage;
   return {
     version: VERSION,
     cat: {
       furColor: isHexColor(cat.furColor) ? cat.furColor : def.cat.furColor,
       pattern: isPattern(cat.pattern) ? cat.pattern : def.cat.pattern,
       eyeColor: isHexColor(cat.eyeColor) ? cat.eyeColor : def.cat.eyeColor,
-      stage: isStage(cat.stage) ? cat.stage : def.cat.stage,
+      stage,
+      size: typeof cat.size === 'number' ? clampSize(stage, cat.size) : 1,
+      build: typeof cat.build === 'number' ? clampBuild(cat.build) : 1,
     },
     settings: {
       muteAll: typeof settings.muteAll === 'boolean' ? settings.muteAll : def.settings.muteAll,

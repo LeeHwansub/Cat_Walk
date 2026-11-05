@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createRng } from '../core/rng';
-import type { CatAppearance } from './appearance';
+import { effectiveScale, girthScale, type CatAppearance } from './appearance';
 import { solveTwoBone } from './ik';
 import type { CatPose } from './pose';
 import { HEAD_LAYER, type CatRig } from './rig';
@@ -36,7 +36,20 @@ const lerp = THREE.MathUtils.lerp;
 export class ProceduralCatRig implements CatRig {
   readonly root = new THREE.Group();
   readonly eyeAnchor = new THREE.Object3D();
-  cycleLength = STRIDE / STANCE;
+  /** 다리 길이 배율 (아기는 다리가 짧다) */
+  private legScale = 1;
+  private eyeScale = 1;
+  /** 체형: 몸통 둘레 배율 (날씬 0.8 ↔ 통통 1.3) */
+  private girth = 1;
+  /** 체형 슬라이더 값에 따른 둘레 (풍선으로 부풀기 전) */
+  private baseGirth = 1;
+  /** 체형에 따라 둘레가 바뀌는 부위: 메시, 기준 크기, 늘릴 축 */
+  private readonly girthParts: { mesh: THREE.Object3D; base: THREE.Vector3; axes: 'xy' | 'xz' | 'xyz'; power: number; belly?: { baseY: number } }[] = [];
+  private readonly legBaseX = new Map<THREE.Group, number>();
+
+  get cycleLength(): number {
+    return (STRIDE * this.legScale) / STANCE;
+  }
 
   private readonly hips = new THREE.Group();
   private readonly spine = new THREE.Group();
@@ -99,9 +112,16 @@ export class ProceduralCatRig implements CatRig {
     this.irisMat.color.set(a.eyeColor);
     this.irisMat.emissive.set(a.eyeColor);
 
+    // 아기 비율: 머리·눈은 몸에 비해 크고, 다리·꼬리는 짧다 (지시서 2단계 성장 단계)
     const kitten = a.stage === 'kitten';
-    this.root.scale.setScalar(kitten ? 0.62 : 1);
+    this.root.scale.setScalar(effectiveScale(a.stage, a.size));
     this.headScaler.scale.setScalar(kitten ? 1.22 : 1);
+    this.eyeScale = kitten ? 1.18 : 1;
+    this.legScale = kitten ? 0.84 : 1;
+    for (const leg of this.legs) leg.root.scale.setScalar(this.legScale);
+    this.tail[0].scale.setScalar(kitten ? 0.8 : 1);
+    this.baseGirth = girthScale(a.build);
+    this.applyGirth(this.baseGirth);
   }
 
   apply(p: CatPose, time: number): void {
@@ -112,7 +132,8 @@ export class ProceduralCatRig implements CatRig {
     const settle = Math.max(p.sit, p.lie);
     const bob = Math.sin(p.gaitPhase * Math.PI * 4) * 0.006 * p.speed;
     const breathe = Math.sin(time * (p.lie > 0.5 ? 1.4 : 2.4)) * (p.lie > 0.5 ? 0.02 : 0.012);
-    const hipY = lerp(lerp(HIP_STAND, HIP_SIT, p.sit), HIP_LIE, p.lie) + bob * (1 - settle);
+    // 통통하면 몸통 반지름이 커지므로 앉기·엎드리기 높이도 같이 올려 몸이 땅에 묻히지 않게 한다
+    const hipY = lerp(lerp(HIP_STAND * this.legScale, HIP_SIT * this.girth, p.sit), HIP_LIE * this.girth, p.lie) + bob * (1 - settle);
     // 고개를 깊이 숙이면(먹기·냄새 맡기) 앞쪽을 낮춰 앞다리를 굽힌다
     const crouch = Math.max(0, p.headPitch - 0.6) * 0.5 * (1 - settle);
     const spinePitch = lerp(lerp(SPINE_STAND, SPINE_SIT, p.sit), SPINE_LIE, p.lie) + crouch + Math.sin(p.gaitPhase * Math.PI * 4 + 1) * 0.015 * p.speed;
@@ -127,6 +148,17 @@ export class ProceduralCatRig implements CatRig {
     this.head.rotation.set(p.headPitch - spinePitch - neckPitch, p.headYaw, p.headTilt, 'YXZ');
     this.head.position.y = 0.075 + Math.sin(time * 18) * 0.004 * p.lick;
 
+    // 풍선: 몸통이 더 동그랗게 부푼다 (체형 둘레에 곱함)
+    const inflated = this.baseGirth * (1 + 0.28 * p.float);
+    if (Math.abs(inflated - this.girth) > 1e-3) this.applyGirth(inflated);
+    if (p.float > 0.01) {
+      // 둥실거리며 살짝 기울어진다
+      this.hips.rotation.z = Math.sin(time * 0.9) * 0.06 * p.float;
+      this.hips.rotation.x = Math.sin(time * 0.7 + 1) * 0.04 * p.float;
+    } else {
+      this.hips.rotation.set(0, 0, 0);
+    }
+
     this.updateEyes(p, time);
     this.updateEars(time, dt);
     this.updateTail(p, time);
@@ -134,6 +166,23 @@ export class ProceduralCatRig implements CatRig {
     // 다리 IK: 몸통 자세가 정해진 뒤 어깨/엉덩이 위치를 계산해서 발을 지면에 딛게 한다
     this.root.updateMatrixWorld(true);
     for (const leg of this.legs) this.solveLeg(leg, p, spinePitch);
+  }
+
+  private girthPart(mesh: THREE.Object3D, axes: 'xy' | 'xz' | 'xyz', power: number, belly = false): void {
+    this.girthParts.push({ mesh, base: mesh.scale.clone(), axes, power, belly: belly ? { baseY: mesh.position.y } : undefined });
+  }
+
+  /** 체형 적용: 몸통·배·목·허벅지·볼의 둘레만 바꾸고 길이는 그대로 둔다 */
+  private applyGirth(g: number): void {
+    this.girth = g;
+    for (const p of this.girthParts) {
+      const k = Math.pow(g, p.power);
+      p.mesh.scale.set(p.base.x * k, p.axes === 'xz' ? p.base.y : p.base.y * k, p.axes === 'xy' ? p.base.z : p.base.z * k);
+      if (p.axes === 'xyz') p.mesh.scale.set(p.base.x * k, p.base.y * k, p.base.z * k);
+      if (p.belly) p.mesh.position.y = p.belly.baseY - (g - 1) * 0.03;
+    }
+    // 몸이 넓어진 만큼 다리 붙는 자리도 바깥으로
+    for (const [root, x] of this.legBaseX) root.position.x = x * Math.pow(g, 0.7);
   }
 
   twitchEar(): void {
@@ -160,19 +209,24 @@ export class ProceduralCatRig implements CatRig {
     this.hips.add(this.spine);
 
     // 몸통 (줄무늬가 몸을 감싸도록 축을 z 방향으로 눕힌다)
-    add(this.hips, sphere(0.078), this.furMat, [0, 0.012, 0], [0.95, 0.95, 1.1]);
-    add(this.spine, new THREE.CapsuleGeometry(0.07, 0.2, 8, 18), this.furMat, [0, 0.008, 0.13], [0.93, 1, 1], Math.PI / 2);
+    this.girthPart(add(this.hips, sphere(0.078), this.furMat, [0, 0.012, 0], [0.95, 0.95, 1.1]), 'xy', 1);
+    // 옆으로 눕힌 캡슐: 로컬 y가 길이, x·z가 둘레
+    this.girthPart(add(this.spine, new THREE.CapsuleGeometry(0.07, 0.2, 8, 18), this.furMat, [0, 0.008, 0.13], [0.93, 1, 1], Math.PI / 2), 'xz', 1);
     this.chest.position.set(0, 0.008, 0.25);
     this.spine.add(this.chest);
-    add(this.chest, sphere(0.08), this.furMat, [0, 0, 0], [0.92, 1, 1]);
+    this.girthPart(add(this.chest, sphere(0.08), this.furMat, [0, 0, 0], [0.92, 1, 1]), 'xy', 1);
     // 앞가슴 털: 캣캠에서는 앞발을 가리므로 머리와 같은 레이어에 둔다
-    add(this.chest, sphere(0.058), this.lightMat, [0, -0.028, 0.035], [1, 1.05, 0.9]).layers.set(HEAD_LAYER);
-    add(this.spine, sphere(0.06), this.lightMat, [0, -0.04, 0.13], [0.9, 0.7, 1.9]); // 배
+    const chestFur = add(this.chest, sphere(0.058), this.lightMat, [0, -0.028, 0.035], [1, 1.05, 0.9]);
+    chestFur.layers.set(HEAD_LAYER);
+    this.girthPart(chestFur, 'xy', 1);
+    const belly = add(this.spine, sphere(0.06), this.lightMat, [0, -0.04, 0.13], [0.9, 0.7, 1.9]); // 배
+    this.girthPart(belly, 'xy', 1.4, true); // 통통하면 배가 더 처진다
 
     // 목·머리
     this.neck.position.set(0, 0.045, 0.3);
     this.spine.add(this.neck);
     const neckMesh = add(this.neck, new THREE.CapsuleGeometry(0.045, 0.05, 6, 12), this.furMat, [0, 0.035, 0]);
+    this.girthPart(neckMesh, 'xz', 0.7);
     neckMesh.layers.set(HEAD_LAYER);
     // 캣캠: 어깨 위에서 가슴 쪽을 내려다보는 위치. 참조 영상처럼 지면, 가슴 털, 앞발이 보인다.
     // (몸통 안쪽 면은 뒷면 컬링으로 그려지지 않는다)
@@ -202,7 +256,8 @@ export class ProceduralCatRig implements CatRig {
       }
       const upperR = front ? 0.024 : 0.032;
       const lowerR = front ? 0.019 : 0.018;
-      add(root, new THREE.CapsuleGeometry(upperR, UPPER - upperR, 4, 10), this.furMat, [0, -UPPER / 2, 0]);
+      this.girthPart(add(root, new THREE.CapsuleGeometry(upperR, UPPER - upperR, 4, 10), this.furMat, [0, -UPPER / 2, 0]), 'xz', 0.6);
+      this.legBaseX.set(root, root.position.x);
       knee.position.y = -UPPER;
       root.add(knee);
       add(knee, new THREE.CapsuleGeometry(lowerR, LOWER - lowerR, 4, 10), front ? this.pawMat : this.furMat, [0, -LOWER / 2, 0]);
@@ -232,8 +287,8 @@ export class ProceduralCatRig implements CatRig {
     const dark = new THREE.MeshStandardMaterial({ color: '#141414', roughness: 0.3 });
 
     add(h, sphere(0.066, 24, 18), this.furMat, [0, 0, 0], [1, 0.88, 0.95]);
-    add(h, sphere(0.042), this.furMat, [0.03, -0.022, 0.028], [1, 0.8, 0.9]); // 볼
-    add(h, sphere(0.042), this.furMat, [-0.03, -0.022, 0.028], [1, 0.8, 0.9]);
+    this.girthPart(add(h, sphere(0.042), this.furMat, [0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5); // 볼
+    this.girthPart(add(h, sphere(0.042), this.furMat, [-0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5);
     add(h, sphere(0.03), this.lightMat, [0, -0.03, 0.056], [1.3, 0.75, 0.85]); // 주둥이
     add(h, sphere(0.009, 10, 8), pink, [0, -0.014, 0.083], [1.4, 0.8, 0.6]); // 코
 
@@ -285,10 +340,10 @@ export class ProceduralCatRig implements CatRig {
     if (p.speed > 0.01) {
       const c = (((p.gaitPhase + leg.phaseOffset) % 1) + 1) % 1;
       if (c < STANCE) {
-        fz += lerp(STRIDE / 2, -STRIDE / 2, c / STANCE) * p.speed;
+        fz += lerp(STRIDE / 2, -STRIDE / 2, c / STANCE) * p.speed * this.legScale;
       } else {
         const s = (c - STANCE) / (1 - STANCE);
-        fz += lerp(-STRIDE / 2, STRIDE / 2, s) * p.speed;
+        fz += lerp(-STRIDE / 2, STRIDE / 2, s) * p.speed * this.legScale;
         fy += Math.sin(s * Math.PI) * 0.045 * p.speed;
       }
     }
@@ -300,6 +355,13 @@ export class ProceduralCatRig implements CatRig {
     const lieY = leg.front ? 0.012 : 0.02;
     fz = lerp(lerp(fz, sitZ, p.sit), lieZ, p.lie);
     fy = lerp(fy, lieY, p.lie);
+
+    // 풍선: 발을 닿지 않는 아래쪽으로 두어 다리를 곧게 늘어뜨리고, 천천히 허우적거린다
+    if (p.float > 0.001) {
+      const paddle = Math.sin(this.lastTime * 2.2 + leg.phaseOffset * Math.PI * 2) * 0.03;
+      fy = lerp(fy, sy - 0.4, p.float);
+      fz = lerp(fz, sz + paddle, p.float);
+    }
 
     // 그루밍: 오른쪽 앞발을 입이나 얼굴로 가져간다
     if (leg.front && leg.side === -1 && p.pawLift > 0.001) {
@@ -315,7 +377,7 @@ export class ProceduralCatRig implements CatRig {
       fz = lerp(fz, gz, p.pawLift);
     }
 
-    const ik = solveTwoBone(UPPER, LOWER, fz - sz, fy - sy, leg.bend);
+    const ik = solveTwoBone(UPPER * this.legScale, LOWER * this.legScale, fz - sz, fy - sy, leg.bend);
     const parentPitch = leg.front ? spinePitch : 0;
     leg.root.rotation.x = -ik.upper - parentPitch;
     leg.knee.rotation.x = -ik.lower;
@@ -328,7 +390,7 @@ export class ProceduralCatRig implements CatRig {
     }
     const blink = time < this.blinkUntil ? 1 : 0;
     const closed = Math.max(p.eyesClosed, blink);
-    for (const e of this.eyes) e.scale.y = lerp(1, 0.08, closed);
+    for (const e of this.eyes) e.scale.set(this.eyeScale, this.eyeScale * lerp(1, 0.08, closed), this.eyeScale);
   }
 
   private updateEars(time: number, dt: number): void {

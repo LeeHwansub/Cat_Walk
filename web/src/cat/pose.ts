@@ -29,6 +29,8 @@ export interface CatPose {
   lick: number;
   /** 0 눈 뜸 ~ 1 감음 */
   eyesClosed: number;
+  /** 0 ~ 1 풍선처럼 떠 있음 (이스터 에그): 다리를 늘어뜨리고 몸이 더 부푼다 */
+  float: number;
 }
 
 export function neutralPose(): CatPose {
@@ -46,5 +48,6 @@ export function neutralPose(): CatPose {
     pawToFace: 0,
     lick: 0,
     eyesClosed: 0,
+    float: 0,
   };
 }

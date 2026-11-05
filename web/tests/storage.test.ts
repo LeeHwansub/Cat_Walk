@@ -60,3 +60,28 @@ describe('storage', () => {
     expect(() => clearSave(throwing)).not.toThrow();
   });
 });
+
+describe('storage — 크기 조절 값', () => {
+  function mem(): KeyValueStore {
+    const data = new Map<string, string>();
+    return { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v), removeItem: (k) => void data.delete(k) };
+  }
+
+  it('크기 조절 값을 저장하고 불러온다', () => {
+    const store = mem();
+    const save = defaultSave();
+    save.cat.stage = 'kitten';
+    save.cat.size = 0.9;
+    writeSave(store, save);
+    expect(loadSave(store)!.cat.size).toBe(0.9);
+  });
+
+  it('단계 범위를 벗어난 크기는 범위 안으로, 없거나 잘못되면 100%', () => {
+    const store = mem();
+    store.setItem(SAVE_KEY, JSON.stringify({ ...defaultSave(), cat: { ...defaultSave().cat, stage: 'kitten', size: 1.5 } }));
+    expect(loadSave(store)!.cat.size).toBe(1.1);
+    const { size: _omit, ...noSize } = defaultSave().cat;
+    store.setItem(SAVE_KEY, JSON.stringify({ ...defaultSave(), cat: noSize }));
+    expect(loadSave(store)!.cat.size).toBe(1);
+  });
+});

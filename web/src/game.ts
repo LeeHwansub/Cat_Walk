@@ -3,7 +3,7 @@ import { AudioManager } from './audio/AudioManager';
 import { BehaviorBrain } from './behavior/brain';
 import type { BehaviorId, InterestKind } from './behavior/types';
 import { CameraRig, type CameraMode } from './camera/CameraRig';
-import type { CatAppearance } from './cat/appearance';
+import { effectiveScale, girthScale, type CatAppearance } from './cat/appearance';
 import { CatAnimator, type AnimBehavior } from './cat/CatAnimator';
 import { CatController } from './cat/CatController';
 import { postureBlocksMovement } from './cat/posture';
@@ -12,6 +12,7 @@ import type { CatRig } from './cat/rig';
 import { Input } from './core/input';
 import { createRng, type Rng } from './core/rng';
 import { browserStore, clearSave, defaultSave, loadSave, writeSave, type KeyValueStore, type SaveData, type Settings } from './save/storage';
+import { BalloonFloat, isBalloon } from './systems/balloon';
 import { EatingSequence } from './systems/eating';
 import { FoodBowl } from './systems/food';
 import { feed, tickHunger, type ActivityState } from './systems/hunger';
@@ -67,6 +68,10 @@ export class Game {
   private standingUp = false;
   private moveHeldBefore = false;
   private lastEarTwitch = -10;
+  /** 이스터 에그: 체형 최대일 때 풍선처럼 떠다니기 */
+  private readonly balloon = new BalloonFloat();
+  private floatHeight = 0;
+  private wasBalloon = false;
   private progressCheck = { at: 0, x: 0, z: 0 };
   private petUntil = 0;
   private userBowlHideAt = -1;
@@ -83,13 +88,14 @@ export class Game {
 
     this.rig = new ProceduralCatRig(this.save.cat);
     this.stage.scene.add(this.rig.root);
-    this.ctrl = new CatController(this.map.collision, this.rig.cycleLength, this.save.cat.stage === 'kitten' ? 0.62 : 1);
+    this.ctrl = new CatController(this.map.collision, this.rig.cycleLength, effectiveScale(this.save.cat.stage, this.save.cat.size));
+    this.ctrl.girth = girthScale(this.save.cat.build);
     const start = this.save.position && isFree(this.map.collision, this.save.position.x, this.save.position.z, 0.2) ? this.save.position : this.map.spawn;
     this.ctrl.x = start.x;
     this.ctrl.z = start.z;
     this.ctrl.heading = this.map.spawn.heading;
 
-    this.audio.setKitten(this.save.cat.stage === 'kitten');
+    this.audio.setVoice(this.save.cat.stage === 'kitten', this.save.cat.size);
     this.brain = new BehaviorBrain(this.rng);
     this.brain.interrupt('lookAround', 4, 0);
 
@@ -155,8 +161,11 @@ export class Game {
   setAppearance(a: CatAppearance): void {
     this.save.cat = { ...a };
     this.rig.setAppearance(a);
-    this.ctrl.scale = a.stage === 'kitten' ? 0.62 : 1;
-    this.audio.setKitten(a.stage === 'kitten');
+    // 크기에 맞춰 이동 속도·걸음 간격·충돌 반경(컨트롤러), 카메라 거리·높이(카메라), 울음 음높이를 함께 조정한다
+    this.ctrl.scale = effectiveScale(a.stage, a.size);
+    this.ctrl.cycleLength = this.rig.cycleLength;
+    this.ctrl.girth = girthScale(a.build);
+    this.audio.setVoice(a.stage === 'kitten', a.size);
   }
 
   setSettings(s: Settings): void {
@@ -237,6 +246,13 @@ export class Game {
     else if (this.phase === 'menu') this.updateAuto(dt, now);
     else this.ctrl.brake(dt);
 
+    // 이스터 에그: 체형 최대 → 풍선처럼 떠오른다 (생성 화면 미리보기에서도)
+    const balloonOn = isBalloon(this.save.cat.build);
+    if (balloonOn && !this.wasBalloon && this.phase !== 'menu') this.audio.meow('curious');
+    this.wasBalloon = balloonOn;
+    this.floatHeight = this.balloon.update(dt, now, balloonOn, this.ctrl.scale);
+    this.ctrl.speedMul = 1 - 0.35 * this.balloon.amount; // 떠 있으면 조금 느리게 둥실둥실
+
     // 애니메이션
     const b = this.brain.current;
     let animBehavior: AnimBehavior = b.id;
@@ -248,19 +264,20 @@ export class Game {
         behavior: animBehavior,
         progress: this.brain.progress(now),
         elapsed: now - b.startedAt,
-        speed: this.ctrl.speed / this.ctrl.scale,
+        speed: this.ctrl.speed / this.ctrl.speedScale,
         turnRate: this.ctrl.turnRate,
         gaitPhase: this.ctrl.gaitPhase,
         petted: now < this.petUntil,
         standingUp: this.standingUp,
+        floating: this.balloon.amount,
       },
       dt,
     );
-    this.rig.root.position.set(this.ctrl.x, 0, this.ctrl.z);
+    this.rig.root.position.set(this.ctrl.x, this.floatHeight, this.ctrl.z);
     this.rig.root.rotation.y = this.ctrl.heading;
     this.rig.apply(pose, now);
 
-    this.cam.update(dt, now, { x: this.ctrl.x, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
+    this.cam.update(dt, now, { x: this.ctrl.x, y: this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
     this.stage.followSun(this.ctrl.x, this.ctrl.z);
     this.audio.update(dt);
     this.stage.renderer.render(this.stage.scene, this.cam.active);
@@ -415,6 +432,7 @@ export class Game {
 
   /** 먹기 흐름 시작: 그릇으로 다가간다 */
   private startEating(bowl: FoodBowl): void {
+    if (this.balloon.amount > 0.05) return; // 떠 있으면 땅에 있는 그릇을 먹을 수 없다
     this.eating = { seq: new EatingSequence(this.rng), bowl };
     this.walkTarget = null;
     this.sniffTarget = null;
@@ -430,7 +448,7 @@ export class Game {
     const bowl = this.nearestFilledBowl(this.eatReach() + 0.05);
     if (!bowl) return;
     this.startEating(bowl);
-    this.eating!.seq.arrive();
+    this.eating?.seq.arrive();
   }
 
   private eatReach(): number {

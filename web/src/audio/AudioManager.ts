@@ -1,4 +1,4 @@
-import { analyzeClip, MEOW_CLIPS, pickMeowClip, PURR_FILES, PURR_MAX_GAIN, type MeowMood } from './clips';
+import { analyzeClip, MEOW_CLIPS, pickMeowClip, PURR_FILES, PURR_LOWPASS_HZ, PURR_MAX_GAIN, sizePitch, type MeowMood } from './clips';
 
 /**
  * 사운드 시스템 (기획서 10장). Web Audio API만 사용한다.
@@ -25,6 +25,8 @@ export class AudioManager {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
   private catBus!: GainNode;
+  /** 고양이 소리 리미터: 순간적으로 튀는 소리를 눌러 클리핑을 막는다 */
+  private catLimiter!: DynamicsCompressorNode;
   private ambBus!: GainNode;
   private noise!: AudioBuffer;
   private lastMeowAt = -100;
@@ -34,6 +36,8 @@ export class AudioManager {
   private readonly purrClips: LoadedClip[] = [];
   private lastPurrIndex = -1;
   private kitten = false;
+  /** 크기 조절 값에 따른 울음 음높이 배율 */
+  private pitch = 1;
   /** 마지막으로 재생한 소리 (점검용) */
   lastPlayed: string | null = null;
   private purrGain: GainNode | null = null;
@@ -55,6 +59,13 @@ export class AudioManager {
     this.master.connect(this.ctx.destination);
     this.catBus = this.ctx.createGain();
     this.catBus.connect(this.master);
+    this.catLimiter = this.ctx.createDynamicsCompressor();
+    this.catLimiter.threshold.value = -1; // 순간적으로 튀는 소리만 누른다
+    this.catLimiter.knee.value = 0;
+    this.catLimiter.ratio.value = 20;
+    this.catLimiter.attack.value = 0.002;
+    this.catLimiter.release.value = 0.05; // 빨리 풀어서 이어지는 소리(골골송)가 같이 작아지지 않게
+    this.catLimiter.connect(this.catBus);
     this.ambBus = this.ctx.createGain();
     this.ambBus.gain.value = 0.6;
     this.ambBus.connect(this.master);
@@ -69,25 +80,21 @@ export class AudioManager {
     return this.clips.size + this.purrClips.length;
   }
 
-  /** 새끼 고양이면 새끼 울음 또는 높은 음 울음을 쓴다 */
-  setKitten(v: boolean): void {
-    this.kitten = v;
+  /** 새끼 고양이면 새끼 울음 또는 높은 음 울음을 쓰고, 크기가 작을수록 음을 약간 높인다 */
+  setVoice(kitten: boolean, size: number): void {
+    this.kitten = kitten;
+    this.pitch = sizePitch(size);
   }
 
   private async loadClips(): Promise<void> {
-    const load = async (file: string, maxGain?: number): Promise<LoadedClip | null> => {
+    const load = async (file: string, opts: { maxGain?: number; peakLimit?: number | null; lowpassHz?: number } = {}): Promise<LoadedClip | null> => {
       try {
         const res = await fetch(SOUND_DIR + file);
         if (!res.ok) throw new Error(`${res.status}`);
         const buffer = await this.ctx!.decodeAudioData(await res.arrayBuffer());
-        // 모든 채널을 본다: 가장 이른 소리 시작점, 가장 큰 채널 기준 음량 (한쪽 채널만 크게 증폭되지 않게)
-        let start = Infinity;
-        let gain = Infinity;
-        for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-          const r = analyzeClip(buffer.getChannelData(ch), buffer.sampleRate, { maxGain });
-          start = Math.min(start, r.start);
-          gain = Math.min(gain, r.gain);
-        }
+        // 모든 채널을 함께 측정한다 (스테레오는 두 채널 음량의 합, BS.1770)
+        const channels = Array.from({ length: buffer.numberOfChannels }, (_, ch) => buffer.getChannelData(ch));
+        const { start, gain } = analyzeClip(channels, buffer.sampleRate, opts);
         return { buffer, start, gain };
       } catch (err) {
         console.warn(`[audio] ${file} 불러오기 실패, 합성음으로 대신합니다`, err);
@@ -100,7 +107,7 @@ export class AudioManager {
         if (loaded) this.clips.set(c.id, loaded);
       }),
       ...PURR_FILES.map(async (f) => {
-        const p = await load(f, PURR_MAX_GAIN);
+        const p = await load(f, { maxGain: PURR_MAX_GAIN, peakLimit: null, lowpassHz: PURR_LOWPASS_HZ });
         if (p) this.purrClips.push(p);
       }),
     ]);
@@ -133,10 +140,10 @@ export class AudioManager {
       const clip = this.clips.get(pick.clip.id)!;
       const src = ctx.createBufferSource();
       src.buffer = clip.buffer;
-      src.playbackRate.value = pick.rate * (0.97 + Math.random() * 0.06); // 같은 파일도 조금씩 다르게
+      src.playbackRate.value = pick.rate * this.pitch * (0.97 + Math.random() * 0.06); // 같은 파일도 조금씩 다르게
       const g = ctx.createGain();
-      g.gain.value = clip.gain * 0.85;
-      src.connect(g).connect(this.catBus);
+      g.gain.value = clip.gain; // 모든 소리를 같은 평균 음량으로 (analyzeClip)
+      src.connect(g).connect(this.catLimiter);
       src.start(now + 0.01, clip.start);
       this.lastClipId = pick.clip.id;
       this.lastPlayed = pick.clip.id;
@@ -153,7 +160,7 @@ export class AudioManager {
     this.lastPlayed = `synth-${k}`;
 
     const dur = k === 'short' ? 0.32 : k === 'long' ? 0.75 : 0.45;
-    const base = (k === 'short' ? 620 : k === 'long' ? 520 : 480) * (0.92 + Math.random() * 0.16);
+    const base = (k === 'short' ? 620 : k === 'long' ? 520 : 480) * this.pitch * (this.kitten ? 1.25 : 1) * (0.92 + Math.random() * 0.16);
     const t0 = now + 0.01;
 
     const osc = ctx.createOscillator();
@@ -229,14 +236,15 @@ export class AudioManager {
       // 휴대폰 녹음을 크게 키우면 고음 잡음도 커지므로, 저음인 골골 소리만 남긴다
       const lp = ctx.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.value = 1800;
+      lp.frequency.value = PURR_LOWPASS_HZ;
+      lp.Q.value = -3.01; // Web Audio lowpass의 Q는 dB 단위. -3.01dB = Q 0.707(공진 없음), 측정 필터와 같다
       const out = ctx.createGain();
-      const vol = clip.gain * 0.75;
+      const vol = clip.gain;
       out.gain.setValueAtTime(0.0001, now);
       out.gain.linearRampToValueAtTime(vol, now + 0.6);
       out.gain.setValueAtTime(vol, now + Math.max(0.6, seconds - 0.8));
       out.gain.linearRampToValueAtTime(0.0001, now + seconds);
-      src.connect(lp).connect(out).connect(this.catBus);
+      src.connect(lp).connect(out).connect(this.catLimiter);
       src.start(now, clip.start);
       src.stop(now + seconds + 0.05);
       this.purrGain = out;

@@ -98,7 +98,7 @@ export class CameraRig {
   update(
     dt: number,
     now: number,
-    cat: { x: number; z: number; heading: number; speed: number; scale: number },
+    cat: { x: number; y?: number; z: number; heading: number; speed: number; scale: number },
     eyeAnchor: THREE.Object3D,
     occluders: THREE.Object3D[],
     reduceShake: boolean,
@@ -107,7 +107,7 @@ export class CameraRig {
     else this.updateFollow(dt, now, cat, occluders);
   }
 
-  private updateFollow(dt: number, now: number, cat: { x: number; z: number; heading: number; speed: number; scale: number }, occluders: THREE.Object3D[]): void {
+  private updateFollow(dt: number, now: number, cat: { x: number; y?: number; z: number; heading: number; speed: number; scale: number }, occluders: THREE.Object3D[]): void {
     if (this.orbit !== 0) {
       this.yaw += this.orbit * dt;
     } else if (now - this.lastManual > 3 && cat.speed > 0.08) {
@@ -115,11 +115,13 @@ export class CameraRig {
       const diff = Math.atan2(Math.sin(cat.heading - this.yaw), Math.cos(cat.heading - this.yaw));
       this.yaw += diff * (1 - Math.exp(-0.8 * dt));
     }
-    const target = this.tmpA.set(cat.x, EYE_HEIGHT * cat.scale, cat.z);
+    // y: 풍선 이스터 에그로 떠 있을 때의 높이. 카메라도 따라 올라간다
+    const target = this.tmpA.set(cat.x, EYE_HEIGHT * cat.scale + (cat.y ?? 0), cat.z);
     const dir = this.tmpB.set(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
 
     // 카메라가 벽이나 차를 뚫고 안으로 들어가지 않게 한다
-    let dist = this.distance * Math.max(0.75, cat.scale);
+    // 카메라 거리·높이는 고양이 크기를 따른다 (작은 고양이는 더 가깝고 낮게)
+    let dist = this.distance * Math.pow(cat.scale, 0.8);
     this.raycaster.set(target, dir);
     this.raycaster.far = dist;
     const hit = this.raycaster.intersectObjects(occluders, true)[0];

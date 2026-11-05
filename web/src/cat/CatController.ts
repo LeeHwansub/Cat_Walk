@@ -27,6 +27,19 @@ export class CatController {
     public scale = 1,
   ) {}
 
+  /** 체형(통통할수록 옆으로 넓다). 충돌 반경에 반영 */
+  girth = 1;
+  /** 속도 추가 배율 (풍선으로 떠 있을 때 느리게) */
+  speedMul = 1;
+
+  /**
+   * 속도 배율. 보폭은 크기에 비례하지만 속도는 덜 줄여서(크기^0.6)
+   * 작은 고양이일수록 걸음이 잦은 종종걸음이 된다.
+   */
+  get speedScale(): number {
+    return Math.pow(this.scale, 0.6) * this.speedMul;
+  }
+
   /** 목표 지점으로 걷는다. 도착하면 true */
   walkTo(tx: number, tz: number, dt: number, stopDist = 0.25, maxSpeed = WALK_SPEED): boolean {
     const dx = tx - this.x;
@@ -41,7 +54,7 @@ export class CatController {
     // 크게 돌아야 하면 천천히, 도착 직전에도 천천히
     const turnSlow = Math.abs(diff) > 1 ? 0.3 : 1;
     const arriveSlow = Math.min(1, dist / 0.6);
-    this.accelerate(maxSpeed * this.scale * turnSlow * Math.max(0.35, arriveSlow), dt);
+    this.accelerate(maxSpeed * this.speedScale * turnSlow * Math.max(0.35, arriveSlow), dt);
     this.advance(dt);
     return false;
   }
@@ -55,7 +68,7 @@ export class CatController {
     }
     const diff = wrapAngle(Math.atan2(dirX, dirZ) - this.heading);
     this.turn(diff, dt, 1.6);
-    this.accelerate(MANUAL_SPEED * this.scale * (Math.abs(diff) > 1.2 ? 0.35 : 1), dt);
+    this.accelerate(MANUAL_SPEED * this.speedScale * (Math.abs(diff) > 1.2 ? 0.35 : 1), dt);
     this.advance(dt);
   }
 
@@ -63,7 +76,7 @@ export class CatController {
   moveTank(turnInput: number, forwardInput: number, dt: number): void {
     this.turnRate = -turnInput * TURN_RATE * 0.6;
     this.heading = wrapAngle(this.heading + this.turnRate * dt);
-    if (forwardInput > 0.01) this.accelerate(MANUAL_SPEED * this.scale * 0.8, dt);
+    if (forwardInput > 0.01) this.accelerate(MANUAL_SPEED * this.speedScale * 0.8, dt);
     else this.brake(dt);
     this.advance(dt);
   }
@@ -89,7 +102,7 @@ export class CatController {
   }
 
   private accelerate(target: number, dt: number): void {
-    const step = ACCEL * this.scale * dt;
+    const step = ACCEL * this.speedScale * dt;
     this.speed += Math.max(-step * 2, Math.min(step, target - this.speed));
   }
 
@@ -100,12 +113,12 @@ export class CatController {
     }
     const nx = this.x + Math.sin(this.heading) * this.speed * dt;
     const nz = this.z + Math.cos(this.heading) * this.speed * dt;
-    const r = resolveCircle(this.world, nx, nz, RADIUS * this.scale);
+    const r = resolveCircle(this.world, nx, nz, RADIUS * this.scale * Math.sqrt(this.girth));
     const moved = Math.hypot(r.x - this.x, r.z - this.z);
     this.x = r.x;
     this.z = r.z;
     // 느리면 보폭이 줄고(애니메이터와 같은 비율), 빠르면 보폭은 그대로 두고 걸음이 빨라진다
-    const norm = Math.min(1, Math.max(0.3, this.speed / (WALK_SPEED * this.scale)));
+    const norm = Math.min(1, Math.max(0.3, this.speed / (WALK_SPEED * this.speedScale)));
     this.gaitPhase = (this.gaitPhase + moved / (this.cycleLength * this.scale * norm)) % 1;
     // 벽에 막히면 실제 이동량에 맞춰 속도를 줄인다 (제자리 걸음 방지)
     if (dt > 0) this.speed = Math.min(this.speed, moved / dt + 0.05);

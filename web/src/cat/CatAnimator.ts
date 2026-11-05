@@ -19,6 +19,8 @@ export interface AnimInput {
   petted: boolean;
   /** 이동하려고 일어서는 중: 앉기·엎드리기를 빠르게 풀고(0.3~0.5초) 다른 자세 요청보다 우선한다 */
   standingUp?: boolean;
+  /** 풍선 이스터 에그: 떠 있는 정도 0~1 */
+  floating?: number;
 }
 
 /** 일어서기 속도. 앉은 자세(1)에서 이동 가능 기준(0.12)까지 약 0.35초 */
@@ -56,6 +58,7 @@ export class CatAnimator {
     p.pawToFace += (t.pawToFace - p.pawToFace) * k(4);
     p.lick += (t.lick - p.lick) * k(6);
     p.eyesClosed += (t.eyesClosed - p.eyesClosed) * k(t.eyesClosed > p.eyesClosed ? 1.2 : 5);
+    p.float = input.floating ?? 0;
     return p;
   }
 
@@ -129,6 +132,17 @@ export class CatAnimator {
       t.tailUp = 0.85;
       t.tailWag = 0.25;
       t.pawLift = 0;
+    }
+    const fl = input.floating ?? 0;
+    if (fl > 0.01) {
+      // 떠 있으면 앉거나 누울 수 없고, 다리는 늘어뜨린 채 꼬리만 살랑인다
+      t.sit *= 1 - fl;
+      t.lie *= 1 - fl;
+      t.speed *= 1 - fl;
+      t.pawLift *= 1 - fl;
+      t.tailUp = t.tailUp * (1 - fl) + 0.75 * fl;
+      t.tailWag = Math.max(t.tailWag, 0.35 * fl);
+      t.headPitch = t.headPitch * (1 - fl) + 0.25 * fl; // 아래를 내려다본다
     }
     if (input.standingUp) {
       t.sit = 0;
