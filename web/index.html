@@ -48,6 +48,19 @@
         <div class="field">
           <span class="label">성장 단계</span>
           <div id="opt-stage" class="chips"></div>
+          <div class="size-row">
+            <input type="range" id="opt-size" min="85" max="120" step="1" value="100" aria-label="크기" />
+            <span id="opt-size-label">100%</span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">체형</span>
+          <div class="size-row">
+            <span class="end-label">날씬</span>
+            <input type="range" id="opt-build" min="80" max="130" step="1" value="100" aria-label="체형 (날씬 ↔ 통통)" />
+            <span class="end-label">통통</span>
+            <span id="opt-build-label">100%</span>
+          </div>
         </div>
         <div class="row">
           <button id="btn-create-back">뒤로</button>

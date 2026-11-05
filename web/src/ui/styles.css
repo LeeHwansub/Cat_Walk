@@ -201,6 +201,32 @@ kbd {
   margin-top: 16px;
 }
 
+.size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.size-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.end-label {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+#opt-build-label,
+#opt-size-label {
+  min-width: 42px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- HUD */
 #hud {
   position: fixed;

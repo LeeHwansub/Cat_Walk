@@ -1,4 +1,4 @@
-import { EYE_COLORS, FUR_COLORS, PATTERNS, PRESETS, type CatAppearance } from '../cat/appearance';
+import { BUILD_RANGE, clampBuild, clampSize, EYE_COLORS, FUR_COLORS, PATTERNS, PRESETS, SIZE_RANGE, type CatAppearance, type GrowthStage } from '../cat/appearance';
 import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
 
@@ -65,11 +65,40 @@ export function bindUi(game: Game): void {
     swatches('opt-fur', FUR_COLORS.map((c) => ({ hex: c.hex, label: c.label, on: draft.furColor === c.hex, pick: () => apply({ furColor: c.hex }) })));
     chips('opt-pattern', PATTERNS.map((p) => ({ label: p.label, on: draft.pattern === p.id, pick: () => apply({ pattern: p.id }) })));
     swatches('opt-eye', EYE_COLORS.map((c) => ({ hex: c.hex, label: c.label, on: draft.eyeColor === c.hex, pick: () => apply({ eyeColor: c.hex }) })));
+    // 단계를 바꾸면 크기 조절 값을 새 단계 범위 안으로 맞춘다 (D-24)
+    const pickStage = (stage: GrowthStage) => apply({ stage, size: clampSize(stage, draft.size) });
     chips('opt-stage', [
-      { label: '새끼', on: draft.stage === 'kitten', pick: () => apply({ stage: 'kitten' }) },
-      { label: '성체', on: draft.stage === 'adult', pick: () => apply({ stage: 'adult' }) },
+      { label: '새끼', on: draft.stage === 'kitten', pick: () => pickStage('kitten') },
+      { label: '성체', on: draft.stage === 'adult', pick: () => pickStage('adult') },
     ]);
+    const [min, max] = SIZE_RANGE[draft.stage];
+    sizeInput.min = String(Math.round(min * 100));
+    sizeInput.max = String(Math.round(max * 100));
+    sizeInput.value = String(Math.round(draft.size * 100));
+    sizeLabel.textContent = `${Math.round(draft.size * 100)}%`;
+    buildInput.value = String(Math.round(draft.build * 100));
+    buildLabel.textContent = `${Math.round(draft.build * 100)}%`;
   }
+
+  // 체형 조절 바: 날씬 ↔ 통통, 움직이는 즉시 미리보기에 반영 (사용자 요청 2026-11-05)
+  const buildInput = $<HTMLInputElement>('opt-build');
+  const buildLabel = $('opt-build-label');
+  buildInput.min = String(Math.round(BUILD_RANGE[0] * 100));
+  buildInput.max = String(Math.round(BUILD_RANGE[1] * 100));
+  buildInput.oninput = () => {
+    draft = { ...draft, build: clampBuild(Number(buildInput.value) / 100) };
+    buildLabel.textContent = `${Math.round(draft.build * 100)}%`;
+    game.setAppearance(draft);
+  };
+
+  // 크기 조절 바: 움직이는 즉시 미리보기에 반영 (지시서 2단계 성장 단계 + 크기 조절)
+  const sizeInput = $<HTMLInputElement>('opt-size');
+  const sizeLabel = $('opt-size-label');
+  sizeInput.oninput = () => {
+    draft = { ...draft, size: clampSize(draft.stage, Number(sizeInput.value) / 100) };
+    sizeLabel.textContent = `${Math.round(draft.size * 100)}%`;
+    game.setAppearance(draft);
+  };
 
   // ---------------- HUD
   const btnMode = $<HTMLButtonElement>('btn-mode');
