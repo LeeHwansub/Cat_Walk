@@ -4,13 +4,15 @@ import { BehaviorBrain } from './behavior/brain';
 import type { BehaviorId, InterestKind } from './behavior/types';
 import { CameraRig, type CameraMode } from './camera/CameraRig';
 import type { CatAppearance } from './cat/appearance';
-import { CatAnimator } from './cat/CatAnimator';
+import { CatAnimator, type AnimBehavior } from './cat/CatAnimator';
 import { CatController } from './cat/CatController';
+import { postureBlocksMovement } from './cat/posture';
 import { ProceduralCatRig } from './cat/ProceduralCatRig';
 import type { CatRig } from './cat/rig';
 import { Input } from './core/input';
 import { createRng, type Rng } from './core/rng';
 import { browserStore, clearSave, defaultSave, loadSave, writeSave, type KeyValueStore, type SaveData, type Settings } from './save/storage';
+import { EatingSequence } from './systems/eating';
 import { FoodBowl } from './systems/food';
 import { feed, tickHunger, type ActivityState } from './systems/hunger';
 import { Resident } from './systems/npc';
@@ -59,8 +61,12 @@ export class Game {
   private lastInputAt = -100;
   private walkTarget: { x: number; z: number } | null = null;
   private sniffTarget: { x: number; z: number } | null = null;
-  private eatBowl: FoodBowl | null = null;
-  private eatArrived = false;
+  /** 진행 중인 먹기 흐름 (다가가기 → 냄새 → 먹기 → 입 핥기) */
+  private eating: { seq: EatingSequence; bowl: FoodBowl } | null = null;
+  /** 이번 프레임에 이동하려고 일어서는 중 */
+  private standingUp = false;
+  private moveHeldBefore = false;
+  private lastEarTwitch = -10;
   private progressCheck = { at: 0, x: 0, z: 0 };
   private petUntil = 0;
   private userBowlHideAt = -1;
@@ -201,7 +207,7 @@ export class Game {
     this.userBowl.group.visible = true;
     this.userBowlHideAt = -1;
     this.audio.meow(this.save.hunger < 50 ? 'hungry' : 'normal');
-    if (this.mode === 'auto' && this.save.hunger < 85) this.beginEat(this.userBowl);
+    if (this.save.hunger < 85) this.startEating(this.userBowl);
   }
 
   /** 저장 초기화. 새로고침 직전 pagehide 이벤트가 다시 저장하지 않도록 자동 저장을 막는다. */
@@ -225,6 +231,7 @@ export class Game {
     this.time += dt;
     const now = this.time;
 
+    this.standingUp = false;
     this.handleKeys();
     if (this.phase === 'play') this.updatePlay(dt, now);
     else if (this.phase === 'menu') this.updateAuto(dt, now);
@@ -232,7 +239,10 @@ export class Game {
 
     // 애니메이션
     const b = this.brain.current;
-    const animBehavior: BehaviorId = this.mode === 'manual' && this.phase === 'play' ? 'idle' : b.id === 'eat' && !this.eatArrived ? 'walk' : b.id;
+    let animBehavior: AnimBehavior = b.id;
+    if (this.eating) animBehavior = this.eating.seq.animBehavior;
+    else if (this.mode === 'manual' && this.phase === 'play') animBehavior = 'idle';
+    else if (b.id === 'eat') animBehavior = 'idle';
     const pose = this.animator.update(
       {
         behavior: animBehavior,
@@ -242,6 +252,7 @@ export class Game {
         turnRate: this.ctrl.turnRate,
         gaitPhase: this.ctrl.gaitPhase,
         petted: now < this.petUntil,
+        standingUp: this.standingUp,
       },
       dt,
     );
@@ -266,7 +277,18 @@ export class Game {
   private updatePlay(dt: number, now: number): void {
     const mv = this.input.move();
     const hasInput = mv.x !== 0 || mv.z !== 0;
-    if (hasInput) {
+    const pressedNow = hasInput && !this.moveHeldBefore;
+    this.moveHeldBefore = hasInput;
+
+    if (this.eating?.seq.locksMovement) {
+      // 먹는 동안: 이동 입력은 무시하고 귀만 움찔한다 (카메라 회전·줌은 그대로)
+      if (pressedNow && now - this.lastEarTwitch > 0.6) {
+        this.rig.twitchEar();
+        this.lastEarTwitch = now;
+      }
+    } else if (hasInput) {
+      if (this.eating) this.cancelEating(); // 그릇으로 가던 중이면 사용자의 조작이 우선
+      this.petUntil = 0;
       if (this.mode === 'auto') {
         this.mode = 'manual';
         this.manualLocked = false;
@@ -276,8 +298,13 @@ export class Game {
       this.lastInputAt = now;
     }
 
-    if (this.mode === 'manual') {
-      if (this.cam.mode === 'cat') {
+    if (this.eating) {
+      this.updateEating(dt, now);
+    } else if (this.mode === 'manual') {
+      this.startEatingIfAtBowl();
+      if (hasInput && !this.readyToMove(dt)) {
+        // 앉아 있거나 엎드려 있으면 일어선 뒤에 걷는다
+      } else if (this.cam.mode === 'cat') {
         this.ctrl.moveTank(mv.x, mv.z, dt);
       } else {
         // 카메라 기준 방향을 월드 방향으로 바꾼다
@@ -330,31 +357,19 @@ export class Game {
 
     switch (cur.id) {
       case 'walk': {
+        if (!this.readyToMove(dt)) break;
         if (!this.walkTarget) this.walkTarget = this.pickWalkTarget();
+        if (this.brain.current.id !== 'walk') break; // 배고파서 먹기로 바뀐 경우
         const arrived = this.ctrl.walkTo(this.walkTarget.x, this.walkTarget.z, dt);
         if (arrived || this.isStuck(now)) this.finishBehavior(now);
         break;
       }
-      case 'eat': {
-        const bowl = this.eatBowl;
-        if (!bowl || !bowl.filled) {
-          this.finishBehavior(now);
-          break;
-        }
-        if (!this.eatArrived) {
-          const reached = this.ctrl.walkTo(bowl.x, bowl.z, dt, 0.3 * this.ctrl.scale + 0.05);
-          if (reached) {
-            this.eatArrived = true;
-            this.brain.interrupt('eat', 6, now); // 도착한 뒤부터 먹는 시간을 센다
-          } else if (this.isStuck(now)) {
-            this.finishBehavior(now);
-          }
-        } else {
-          this.ctrl.face(bowl.x, bowl.z, dt);
-        }
+      case 'eat':
+        // 먹기 흐름은 updateEating이 처리한다. 흐름이 없으면(메뉴 화면 등) 제자리에 있는다.
+        this.ctrl.brake(dt);
         break;
-      }
       case 'sniff':
+        if (!this.readyToMove(dt)) break;
         if (this.sniffTarget) this.ctrl.face(this.sniffTarget.x, this.sniffTarget.z, dt);
         else this.ctrl.brake(dt);
         break;
@@ -373,14 +388,14 @@ export class Game {
     if (id === 'sniff') this.sniffTarget = this.nearestInterest(SNIFF_KINDS);
     if (id === 'eat') {
       const bowl = this.nearestFilledBowl(1.6);
-      if (bowl) this.beginEat(bowl, false);
+      if (bowl) this.startEating(bowl);
+      else this.finishBehavior(now);
     }
   }
 
   private onBehaviorEnd(id: BehaviorId): void {
     if (id === 'walk') this.walkTarget = null;
     if (id === 'sniff') this.sniffTarget = null;
-    if (id === 'eat') this.finishEating();
   }
 
   private finishBehavior(now: number): void {
@@ -390,26 +405,73 @@ export class Game {
     this.onBehaviorStart(this.brain.current.id, now);
   }
 
-  private beginEat(bowl: FoodBowl, interrupt = true): void {
-    this.eatBowl = bowl;
-    this.eatArrived = false;
-    this.walkTarget = null;
-    if (interrupt) {
-      this.brain.interrupt('eat', 30, this.time);
-      this.progressCheck = { at: this.time, x: this.ctrl.x, z: this.ctrl.z };
-    }
+  /** 이동하려는데 앉거나 엎드려 있으면 멈춘 채 일어서기를 요청한다. 걸어도 되면 true */
+  private readyToMove(dt: number): boolean {
+    if (!postureBlocksMovement(this.animator.pose)) return true;
+    this.standingUp = true;
+    this.ctrl.brake(dt);
+    return false;
   }
 
-  private finishEating(): void {
-    const bowl = this.eatBowl;
-    if (bowl && this.eatArrived && bowl.filled) {
+  /** 먹기 흐름 시작: 그릇으로 다가간다 */
+  private startEating(bowl: FoodBowl): void {
+    this.eating = { seq: new EatingSequence(this.rng), bowl };
+    this.walkTarget = null;
+    this.sniffTarget = null;
+    this.petUntil = 0;
+    // 자율 행동이 먹는 도중 다른 행동으로 넘어가지 않게 붙잡아 둔다
+    this.brain.interrupt('eat', 1e9, this.time);
+    this.progressCheck = { at: this.time, x: this.ctrl.x, z: this.ctrl.z };
+  }
+
+  /** 직접 조작으로 그릇 앞까지 왔고 배가 고프면 먹기 시작 */
+  private startEatingIfAtBowl(): void {
+    if (this.save.hunger >= 70) return;
+    const bowl = this.nearestFilledBowl(this.eatReach() + 0.05);
+    if (!bowl) return;
+    this.startEating(bowl);
+    this.eating!.seq.arrive();
+  }
+
+  private eatReach(): number {
+    return 0.3 * this.ctrl.scale + 0.05;
+  }
+
+  private updateEating(dt: number, now: number): void {
+    const e = this.eating!;
+    if (!e.bowl.filled || !e.bowl.group.visible) {
+      this.cancelEating();
+      return;
+    }
+    if (e.seq.phase === 'approach') {
+      if (!this.readyToMove(dt)) return;
+      const reached = this.ctrl.walkTo(e.bowl.x, e.bowl.z, dt, this.eatReach());
+      if (reached) e.seq.arrive();
+      else if (this.isStuck(now)) this.cancelEating();
+      return;
+    }
+    // 도착 후: 그릇을 바라보고 냄새 → 먹기 → 입 핥기 (이동 잠금)
+    this.ctrl.face(e.bowl.x, e.bowl.z, dt);
+    const ev = e.seq.update(dt);
+    if (ev.fed) {
       this.save.hunger = feed(this.save.hunger);
-      bowl.setFilled(false);
-      if (bowl === this.userBowl) this.userBowlHideAt = this.time + 3;
+      e.bowl.setFilled(false);
+      if (e.bowl === this.userBowl) this.userBowlHideAt = now + 3;
       this.emitHud();
     }
-    this.eatBowl = null;
-    this.eatArrived = false;
+    if (ev.done) this.endEating(now);
+  }
+
+  /** 먹기 흐름이 끝나면 조작을 돌려준다 */
+  private endEating(now: number): void {
+    this.eating = null;
+    if (this.mode === 'auto') this.finishBehavior(now);
+    else this.lastInputAt = now; // 직접 조작 중이었다면 자동 복귀 대기 시간을 다시 센다
+  }
+
+  private cancelEating(): void {
+    this.eating = null;
+    if (this.brain.current.id === 'eat') this.brain.interrupt('lookAround', 2, this.time);
   }
 
   private returnToAuto(): void {
@@ -424,8 +486,7 @@ export class Game {
   private clearTargets(): void {
     this.walkTarget = null;
     this.sniffTarget = null;
-    this.eatBowl = null;
-    this.eatArrived = false;
+    this.eating = null;
   }
 
   /** 1.5초 동안 거의 못 움직였으면 장애물에 막힌 것 */
@@ -443,9 +504,9 @@ export class Game {
     if (this.save.hunger < 50) {
       const bowl = [this.stationBowl, this.userBowl].find((b) => b.filled && b.group.visible);
       if (bowl) {
-        this.beginEat(bowl);
+        this.startEating(bowl);
         this.audio.meow('hungry');
-        return { x: bowl.x, z: bowl.z };
+        return { x: this.ctrl.x, z: this.ctrl.z };
       }
     }
     // 대부분은 근처 관심 지점(화분, 풀, 차, 햇볕 자리 등)으로
@@ -524,8 +585,9 @@ export class Game {
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       ray.setFromCamera(ndc, this.cam.active);
       if (ray.intersectObject(this.rig.root, true).length === 0) return;
-      this.petUntil = this.time + 4.5;
       this.audio.purr(5);
+      if (this.eating?.seq.locksMovement) return; // 먹는 중에는 골골송만, 자세는 그대로
+      this.petUntil = this.time + 4.5;
       if (this.mode === 'auto') {
         this.clearTargets();
         this.brain.interrupt('sit', 6, this.time);
