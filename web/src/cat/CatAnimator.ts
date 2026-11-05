@@ -1,8 +1,11 @@
 import type { BehaviorId } from '../behavior/types';
 import { neutralPose, type CatPose } from './pose';
 
+/** 애니메이션 전용 동작: 먹은 뒤 입 핥기 */
+export type AnimBehavior = BehaviorId | 'lickLips';
+
 export interface AnimInput {
-  behavior: BehaviorId;
+  behavior: AnimBehavior;
   /** 현재 행동 진행률 0~1 */
   progress: number;
   /** 현재 행동 경과 시간 (초) */
@@ -14,7 +17,12 @@ export interface AnimInput {
   gaitPhase: number;
   /** 쓰다듬기 반응 중 */
   petted: boolean;
+  /** 이동하려고 일어서는 중: 앉기·엎드리기를 빠르게 풀고(0.3~0.5초) 다른 자세 요청보다 우선한다 */
+  standingUp?: boolean;
 }
+
+/** 일어서기 속도. 앉은 자세(1)에서 이동 가능 기준(0.12)까지 약 0.35초 */
+const STAND_UP_RATE = 6;
 
 const WALK_SPEED = 0.55;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -37,8 +45,8 @@ export class CatAnimator {
     const k = (rate: number) => 1 - Math.exp(-rate * dt);
     p.gaitPhase = input.gaitPhase;
     p.speed += (t.speed - p.speed) * k(8);
-    p.sit += (t.sit - p.sit) * k(3);
-    p.lie += (t.lie - p.lie) * k(1.8);
+    p.sit += (t.sit - p.sit) * k(input.standingUp ? STAND_UP_RATE : 3);
+    p.lie += (t.lie - p.lie) * k(input.standingUp ? STAND_UP_RATE : 1.8);
     p.headYaw += (t.headYaw - p.headYaw) * k(4);
     p.headPitch += (t.headPitch - p.headPitch) * k(4);
     p.headTilt += (t.headTilt - p.headTilt) * k(3);
@@ -102,9 +110,17 @@ export class CatAnimator {
         t.tailUp = 0.4;
         t.tailWag = 0.1;
         break;
+      case 'lickLips':
+        // 먹고 나서 고개를 들고 입 주변을 핥는다
+        t.headPitch = -0.05;
+        t.lick = 1;
+        t.eyesClosed = 0.4;
+        t.tailUp = 0.5;
+        t.tailWag = 0.2;
+        break;
     }
 
-    if (input.petted) {
+    if (input.petted && !input.standingUp) {
       t.sit = Math.max(t.sit, 1);
       t.lie = 0;
       t.headPitch = -0.3;
@@ -112,6 +128,11 @@ export class CatAnimator {
       t.eyesClosed = 0.65;
       t.tailUp = 0.85;
       t.tailWag = 0.25;
+      t.pawLift = 0;
+    }
+    if (input.standingUp) {
+      t.sit = 0;
+      t.lie = 0;
       t.pawLift = 0;
     }
     return t;
