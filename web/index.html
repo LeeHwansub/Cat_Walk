@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cat Walk</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/ui/styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="fade"></div>
+
+    <!-- 시작 화면 -->
+    <section id="screen-start" class="screen">
+      <div class="title-card">
+        <h1>Cat Walk</h1>
+        <p class="tagline">A Little World with Cats</p>
+        <p class="sub">고양이와 함께 작은 동네를 거닐며,<br />자유롭게 살아가는 고양이의 하루를 경험해 보세요.</p>
+        <div class="menu">
+          <button id="btn-new" class="primary">시작하기</button>
+          <button id="btn-continue">이어하기</button>
+          <button id="btn-settings-start">설정</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 고양이 생성 화면 -->
+    <section id="screen-create" class="screen hidden">
+      <div class="panel create-panel">
+        <h2>나의 고양이</h2>
+        <div class="field">
+          <span class="label">프리셋</span>
+          <div id="opt-presets" class="chips"></div>
+        </div>
+        <div class="field">
+          <span class="label">털 색상</span>
+          <div id="opt-fur" class="swatches"></div>
+        </div>
+        <div class="field">
+          <span class="label">무늬</span>
+          <div id="opt-pattern" class="chips"></div>
+        </div>
+        <div class="field">
+          <span class="label">눈 색상</span>
+          <div id="opt-eye" class="swatches"></div>
+        </div>
+        <div class="field">
+          <span class="label">성장 단계</span>
+          <div id="opt-stage" class="chips"></div>
+        </div>
+        <div class="row">
+          <button id="btn-create-back">뒤로</button>
+          <button id="btn-create-done" class="primary">생성 완료</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 플레이 HUD -->
+    <section id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hunger" title="배고픔">
+          <span class="hunger-icon">배고픔</span>
+          <div class="bar"><div id="hunger-fill"></div></div>
+          <span id="hunger-label"></span>
+        </div>
+        <button id="btn-settings" class="icon-btn" aria-label="설정">⚙</button>
+      </div>
+      <div class="hud-bottom">
+        <button id="btn-mode" class="pill"></button>
+        <button id="btn-camera" class="pill"></button>
+        <button id="btn-feed" class="pill">먹이 주기 <kbd>F</kbd></button>
+      </div>
+      <p class="hint">WASD·방향키 이동 · 드래그 회전 · 휠 줌 · 고양이 클릭 쓰다듬기</p>
+    </section>
+
+    <!-- 설정 -->
+    <div id="settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="panel">
+        <h2 id="settings-title">설정</h2>
+        <label class="check"><input type="checkbox" id="set-mute-all" /> 전체 음소거</label>
+        <label class="check"><input type="checkbox" id="set-mute-cat" /> 고양이 울음소리 끄기</label>
+        <label class="check"><input type="checkbox" id="set-shake" /> 고양이 시점 흔들림 줄이기</label>
+        <div class="row">
+          <button id="btn-reset" class="danger">저장 초기화</button>
+          <button id="btn-settings-close" class="primary">닫기</button>
+        </div>
+        <!-- 효과음 출처 표기 (CC BY 4.0, D-21) -->
+        <p class="credits">
+          효과음: 【 -라일락- 】
+          <a href="https://pgtd.tistory.com/127" target="_blank" rel="noopener noreferrer">pgtd.tistory.com/127</a>,
+          <a href="https://creativecommons.org/licenses/by/4.0/deed.ko" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
+          · 재생 시 음량과 앞부분 무음을 조정함
+        </p>
+      </div>
+    </div>
+
+    <div id="error" class="hidden"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
