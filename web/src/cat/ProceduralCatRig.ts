@@ -136,6 +136,11 @@ export class ProceduralCatRig implements CatRig {
     for (const leg of this.legs) this.solveLeg(leg, p, spinePitch);
   }
 
+  twitchEar(): void {
+    const t = this.lastTime;
+    this.earTwitch = { at: t + 3 + Math.random() * 4, side: Math.random() < 0.5 ? 0 : 1, until: t + 0.25 };
+  }
+
   // ---------------------------------------------------------------- 구성
 
   private build(): void {

@@ -18,4 +18,6 @@ export interface CatRig {
   readonly cycleLength: number;
   setAppearance(appearance: CatAppearance): void;
   apply(pose: CatPose, time: number): void;
+  /** 작은 반응: 귀를 한 번 움찔한다 (먹는 중 이동 키를 눌렀을 때 등) */
+  twitchEar(): void;
 }
