@@ -77,3 +77,32 @@
 ## 4. 사운드 (D-15, D-18)
 
 D-18에 따라 사용자가 제공한 파일을 적용했다 (1.1절). 출처는 D-19, 앱 안 출처 표기는 D-21.
+
+## 5. 리깅 모델 후보 조사 (2026-11-06, 2단계 D-23 C, 라이선스 확인까지만)
+
+조건: 하나로 이어진 메시 + 뼈대, 걷기·앉기·눕기·그루밍 계열 동작, 웹(three.js)에서 쓸 수 있는 형식(glTF/GLB 또는 FBX 변환), 수정 허용(접힌 귀 수정), 상업적 이용.
+**구매·다운로드는 하지 않았다.** 아래 내용은 판매 페이지와 라이선스 문서를 읽은 결과이며, 가격과 목록은 바뀔 수 있다.
+
+### 5.1 마켓별 라이선스 핵심 (웹 게임 관점)
+
+| 마켓 | 게임에 넣어 배포 | 웹에서의 문제 | 비고 |
+|---|---|---|---|
+| CGTrader Royalty Free ([약관 21A](https://www.cgtrader.com/pages/terms-and-conditions)) | 가능하지만 "**독점 형식 안에** 담긴 경우"로 한정 | "최종 사용자가 모델에 접근하지 못하게 상업적으로 합리적인 조치(암호화, 보호된 리소스 파일 등)"가 **의무**. 브라우저에 glTF를 그대로 내려보내면 추출이 쉬워 **위반 소지가 큼** | "Editorial" 표시 모델은 뉴스·보도 용도만 가능 → 게임에 사용 불가 |
+| Fab Standard ([라이선스](https://www.fab.com/eula)) | 가능. "에셋을 포함한 프로젝트를 상업적으로 배포", 수정 허용 | 단독 파일로 재배포·무료 배포 금지. 암호화 의무 문구는 없음 → **웹 사용에 가장 무난** | 출처 표기 의무 없음(포럼 답변 기준, 원문 미확인) |
+| Sketchfab Store Standard ([라이선스](https://sketchfab.com/licenses)) | "Reproduce"(배포·2차 저작 포함) 허용, 단 단독 파일 제공 금지 | 파일 보호(무단 접근 방지) 조항 있음 → CGTrader보다는 약하지만 주의 필요 | Editorial은 상업 이용 불가 |
+
+### 5.2 후보
+
+| 후보 | 형식 | 동작 | 가격 (조회 시점) | 라이선스 | 판단 |
+|---|---|---|---|---|---|
+| **[Cats - Simple (Radik Bilalov, Fab)](https://www.fab.com/listings/4fa9591d-945e-41be-b37b-b39e4539602a)** | FBX, OBJ, **glTF/GLB**, USDZ, Blender | **100개 이상**: 걷기·속보·달리기, 앉기 대기 1~3, 핥기, 귀 긁기, 엎드리기 2종, **배 보이고 눕기 3종**, 잠·배 보이고 잠, 먹기·마시기, 점프 | 약 40,700원 | Fab Standard (라이선스 선택 항목은 페이지에서 확인 못 함) | **1순위.** 동작이 지금 행동 목록과 거의 맞고 glTF 제공. 일반 귀라 접힌 귀는 Blender로 수정 필요. 11.4k 삼각형 + 모바일용 2.35k |
+| [Animalia - Domestic Cat (GiM, Fab)](https://www.fab.com/listings/f2e3ef1b-bc1d-4dd4-9638-e72b1a29241b) | Unreal, Unity, Maya·3ds Max 리그 (**glTF 표기 없음**) | 60개 이상(60fps), 4K 텍스처, 털(gFur 지원) | 약 122,000원 | Fab | 품질은 가장 높아 보이나 웹 변환 작업과 비용 부담. 2순위 |
+| [Chibi cat Scottish Fold (CGTrader)](https://www.cgtrader.com/3d-models/animal/mammal/chibi-cat-scottish-fold) | Blender, FBX | 걷기·앉기·먹기·자기 등 | $20 | **Editorial, No AI** | 접힌 귀지만 **Editorial이라 게임 사용 불가**. 치비 스타일도 맞지 않음 |
+| [Orange Scottish Fold (CGTrader)](https://www.cgtrader.com/3d-models/animal/mammal/orange-scottish-fold-cat) | .blend (약 65MB) | idle 1개 | $50 | Royalty Free | 접힌 귀지만 동작이 거의 없고, CGTrader 웹 추출 방지 의무 문제 |
+| [Cat Rigged & Animated Low Poly (3D_Tech, Sketchfab→Fab)](https://sketchfab.com/3d-models/cat-rigged-animated-low-poly-7510ec711d204b5788262c6d5eb678ed) | 미표기 | 10개 (걷기, 앉아 대기, 먹기 등. 눕기 없음) | 미표기 | 미표기 | 눕기 동작 없음 → 제외 |
+
+### 5.3 정리와 남은 확인 사항
+1. 웹 배포 조건을 보면 **Fab Standard 라이선스 모델이 가장 무난하다.** CGTrader Royalty Free는 브라우저 배포 시 추출 방지 의무 때문에 위험하다.
+2. 접힌 귀 + 충분한 동작 + 웹 사용 가능 라이선스를 모두 갖춘 모델은 찾지 못했다. 1순위 후보를 사면 **귀를 직접 수정**해야 한다(Fab Standard는 수정 허용).
+3. 구매 전 확인 필요: Fab 라이선스 선택 항목(개인/전문가 구분, 매출 기준), 모델 페이지의 개별 제한, 판매자에게 웹(three.js) 배포 가능 여부 문의.
+4. 리깅 모델로 바꾸면 `CatRig` 인터페이스 뒤에 `SkinnedCatRig`를 새로 만들고, 지금의 자세 값(`CatPose`)을 애니메이션 클립 혼합으로 옮긴다. 행동·자세 시스템은 그대로 쓴다.
