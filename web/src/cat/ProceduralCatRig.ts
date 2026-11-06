@@ -73,6 +73,10 @@ export class ProceduralCatRig implements CatRig {
   private readonly tail: THREE.Group[] = [];
   private readonly legs: Leg[] = [];
   private readonly eyes: THREE.Group[] = [];
+  /** 눈동자 기본 방향 (좌우로 살짝 벌어짐) */
+  private readonly eyeBaseY: number[] = [];
+  /** 각막 하이라이트: 눈동자가 움직여도 빛 방향에 고정되도록 눈 회전을 되돌린다 */
+  private readonly glints: THREE.Group[] = [];
   private readonly ears: THREE.Mesh[] = [];
   private readonly earTwitchAmt = [0, 0];
   private earBaseX = 0;
@@ -156,6 +160,10 @@ export class ProceduralCatRig implements CatRig {
 
     this.irisMat.color.set(a.eyeColor);
     this.irisMat.emissive.set(a.eyeColor);
+    if (!this.irisMat.map) {
+      this.irisMat.map = irisTexture();
+      this.irisMat.needsUpdate = true;
+    }
 
     // 아기 비율: 머리·눈은 몸에 비해 크고, 다리·꼬리는 짧다 (지시서 2단계 성장 단계)
     const kitten = a.stage === 'kitten';
@@ -372,6 +380,13 @@ export class ProceduralCatRig implements CatRig {
     const h = this.headScaler;
     const pink = new THREE.MeshStandardMaterial({ color: '#d98c8c', roughness: 0.7 });
     const dark = new THREE.MeshStandardMaterial({ color: '#141414', roughness: 0.3 });
+    const corneaMat = new THREE.MeshPhysicalMaterial({ color: '#ffffff', transparent: true, opacity: 0.18, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false });
+    const glintMat = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false });
+    /** 눈 구 표면 위의 점: 정면(+z)에서 x·y 방향으로 기울인 위치 */
+    const dirOn = (r: number, x: number, y: number): [number, number, number] => {
+      const v = new THREE.Vector3(x, y, 1).normalize().multiplyScalar(r);
+      return [v.x, v.y, v.z];
+    };
 
     add(h, sphere(0.066, 24, 18), this.furMat, [0, 0, 0], [1, 0.88, 0.95]);
     this.girthPart(add(h, sphere(0.042), this.furMat, [0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5); // 볼
@@ -396,8 +411,25 @@ export class ProceduralCatRig implements CatRig {
       eye.position.set(0.026 * side, 0.006, 0.054);
       eye.rotation.y = 0.32 * side;
       h.add(eye);
-      add(eye, sphere(0.0145, 16, 12), this.irisMat, [0, 0, 0]);
-      add(eye, sphere(0.0146, 12, 10), dark, [0, 0, 0.0035], [0.28, 0.92, 0.6]); // 세로 동공
+      add(eye, sphere(0.0145, 24, 16), this.irisMat, [0, 0, 0]);
+      // 세로 동공: 앞면이 홍채 표면(0.0145)보다 살짝 앞에 오도록 둔다 (전에는 홍채 안에 묻혀 보이지 않았다)
+      add(eye, sphere(0.0146, 12, 10), dark, [0, 0, 0.0062], [0.28, 0.92, 0.6]);
+      // 각막: 홍채를 덮는 얇고 매끈한 막. 햇빛·하늘빛이 반사되어 촉촉해 보인다
+      const cornea = add(eye, sphere(0.0153, 24, 16), corneaMat, [0, 0, 0.0008]);
+      cornea.castShadow = false;
+      cornea.renderOrder = 1;
+      // 하이라이트(눈 속 반짝임): 큰 점 하나 + 작은 점 하나. 위쪽 바깥에 둔다
+      const glint = new THREE.Group();
+      eye.add(glint);
+      const gl1 = add(glint, sphere(0.0031, 10, 8), glintMat, dirOn(0.0154, 0.32 * side, 0.42));
+      const gl2 = add(glint, sphere(0.0014, 8, 6), glintMat, dirOn(0.0154, -0.28 * side, -0.3));
+      for (const m of [gl1, gl2]) {
+        m.castShadow = false;
+        m.receiveShadow = false;
+        m.renderOrder = 2;
+      }
+      this.glints.push(glint);
+      this.eyeBaseY.push(eye.rotation.y);
       this.eyes.push(eye);
     }
 
@@ -524,7 +556,12 @@ export class ProceduralCatRig implements CatRig {
     }
     const blink = time < this.blinkUntil ? 1 : 0;
     const closed = Math.max(p.eyesClosed, blink);
-    for (const e of this.eyes) e.scale.set(this.eyeScale, this.eyeScale * lerp(1, 0.08, closed), this.eyeScale);
+    this.eyes.forEach((e, i) => {
+      e.scale.set(this.eyeScale, this.eyeScale * lerp(1, 0.08, closed), this.eyeScale);
+      // 눈동자 움직임. 하이라이트는 반대로 돌려 제자리에 둔다 (빛은 눈과 함께 움직이지 않는다)
+      e.rotation.set(p.eyePitch, this.eyeBaseY[i] + p.eyeYaw, 0);
+      this.glints[i].rotation.set(-p.eyePitch, -p.eyeYaw, 0);
+    });
   }
 
   /** 귀 형태: 선 귀 / 접힌 귀(앞으로 접혀 머리에 붙음) */
@@ -639,6 +676,46 @@ function tabbyTexture(fur: THREE.Color, darkness: number): THREE.CanvasTexture {
       g.stroke();
     }
   });
+}
+
+/**
+ * 홍채 무늬 (회색조, 눈 색을 곱해 쓴다): 동공 쪽은 밝고, 바깥 테두리(윤부)는 어둡고, 가는 방사형 결.
+ * 구의 UV에서 정면(+z)은 u=0.25, v=0.5 이므로 가로 2:1 캔버스의 (64, 64)를 중심으로 그린다
+ */
+function irisTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#5a5a5a';
+  g.fillRect(0, 0, 256, 128);
+  const cx = 64;
+  const cy = 64;
+  const grad = g.createRadialGradient(cx, cy, 2, cx, cy, 60);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.35, '#f2f2f2');
+  grad.addColorStop(0.7, '#c8c8c8');
+  grad.addColorStop(0.86, '#8a8a8a');
+  grad.addColorStop(1, '#4a4a4a');
+  g.fillStyle = grad;
+  g.beginPath();
+  g.arc(cx, cy, 60, 0, Math.PI * 2);
+  g.fill();
+  const rng = createRng(7);
+  g.lineWidth = 1;
+  for (let i = 0; i < 90; i++) {
+    const a = rng() * Math.PI * 2;
+    const r0 = 8 + rng() * 10;
+    const r1 = 38 + rng() * 18;
+    g.strokeStyle = rng() < 0.5 ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.12)';
+    g.beginPath();
+    g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+    g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /** 이마 M자 무늬: 투명 바탕에 진한 줄 세 개 + M자 윗선 */

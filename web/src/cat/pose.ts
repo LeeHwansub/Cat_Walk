@@ -41,6 +41,10 @@ export interface CatPose {
   tailWrap: number;
   /** 0 ~ 1 아저씨 앉기: 엉덩이를 대고 상체를 세워 뒷다리를 앞으로 뻗는다 */
   manSit: number;
+  /** 눈동자 좌우 (고개로 다 못 돌린 시선, + 왼쪽) */
+  eyeYaw: number;
+  /** 눈동자 위아래 (+ 아래) */
+  eyePitch: number;
 }
 
 export function neutralPose(): CatPose {
@@ -64,5 +68,7 @@ export function neutralPose(): CatPose {
     stretch: 0,
     tailWrap: 0,
     manSit: 0,
+    eyeYaw: 0,
+    eyePitch: 0,
   };
 }

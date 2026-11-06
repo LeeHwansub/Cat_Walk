@@ -1,4 +1,5 @@
 import type { BehaviorId } from '../behavior/types';
+import type { GazeAngles } from './gaze';
 import { neutralPose, type CatPose } from './pose';
 
 /** 애니메이션 전용 동작: 먹은 뒤 입 핥기 */
@@ -21,7 +22,23 @@ export interface AnimInput {
   standingUp?: boolean;
   /** 풍선 이스터 에그: 떠 있는 정도 0~1 */
   floating?: number;
+  /** 바라볼 대상의 방향 (없으면 null) */
+  gaze?: GazeAngles | null;
 }
+
+/** 행동별로 시선 대상을 따르는 정도. 없는 행동(그루밍·먹기·냄새 맡기 등)은 자기 동작에 집중한다 */
+const GAZE_WEIGHT: Partial<Record<AnimBehavior, number>> = {
+  idle: 0.85,
+  sit: 0.85,
+  lookAround: 0.6,
+  loaf: 0.75,
+  manSit: 0.85,
+  tailWrap: 0.5,
+  walk: 0.35,
+};
+/** 눈동자가 머리 안에서 움직일 수 있는 한계 */
+const MAX_EYE_YAW = 0.3;
+const MAX_EYE_PITCH = 0.2;
 
 /** 일어서기 속도. 앉은 자세(1)에서 이동 가능 기준(0.12)까지 약 0.35초 */
 const STAND_UP_RATE = 6;
@@ -64,6 +81,8 @@ export class CatAnimator {
     p.stretch += (t.stretch - p.stretch) * k(up ? STAND_UP_RATE : 4);
     p.tailWrap += (t.tailWrap - p.tailWrap) * k(1.2);
     p.manSit += (t.manSit - p.manSit) * k(up ? STAND_UP_RATE : 2.5);
+    p.eyeYaw += (t.eyeYaw - p.eyeYaw) * k(14); // 눈은 고개보다 먼저, 빠르게 움직인다
+    p.eyePitch += (t.eyePitch - p.eyePitch) * k(14);
     p.float = input.floating ?? 0;
     return p;
   }
@@ -185,6 +204,21 @@ export class CatAnimator {
         t.tailUp = 0.5;
         t.tailWag = 0.2;
         break;
+    }
+
+    // 시선: 쉬는 행동 중에는 관심 대상 쪽으로 고개를 돌리고, 남는 각도는 눈동자로 본다
+    let gw = input.gaze && !input.petted ? (GAZE_WEIGHT[input.behavior] ?? 0) : 0;
+    // 걷는 중(직접 조작 포함)에는 앞을 보며 힐끗 보는 정도만
+    const walking = input.behavior === 'walk' || moving > 0.3;
+    if (walking) gw = Math.min(gw, GAZE_WEIGHT.walk ?? 0);
+    if (gw > 0 && input.gaze) {
+      const headYawMax = walking ? 0.5 : 1;
+      const wantYaw = Math.max(-headYawMax, Math.min(headYawMax, input.gaze.yaw));
+      t.headYaw = lerp(t.headYaw, wantYaw, gw);
+      t.headPitch = lerp(t.headPitch, t.headPitch + input.gaze.pitch * 0.6, gw);
+      const open = 1 - t.eyesClosed;
+      t.eyeYaw = Math.max(-MAX_EYE_YAW, Math.min(MAX_EYE_YAW, input.gaze.yaw - t.headYaw)) * open;
+      t.eyePitch = Math.max(-MAX_EYE_PITCH, Math.min(MAX_EYE_PITCH, input.gaze.pitch * 0.4)) * open;
     }
 
     if (input.petted && !input.standingUp) {

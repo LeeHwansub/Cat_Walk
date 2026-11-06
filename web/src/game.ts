@@ -6,6 +6,7 @@ import { CameraRig, type CameraMode } from './camera/CameraRig';
 import { effectiveScale, girthScale, type CatAppearance } from './cat/appearance';
 import { CatAnimator, type AnimBehavior } from './cat/CatAnimator';
 import { CatController } from './cat/CatController';
+import { gazeAngles, GazePicker, type GazePoint } from './cat/gaze';
 import { postureBlocksMovement } from './cat/posture';
 import { ProceduralCatRig } from './cat/ProceduralCatRig';
 import type { CatRig } from './cat/rig';
@@ -34,6 +35,8 @@ export interface HudState {
 /** 직접 조작 입력이 이 시간(초) 동안 없으면 자동 생활로 돌아간다 (기획서 4.1) */
 const MANUAL_RETURN = 5;
 const SNIFF_KINDS: InterestKind[] = ['grass', 'flower', 'pot', 'car', 'pond'];
+/** 관심 지점별로 바라보는 높이 (m). 햇볕 자리·연못처럼 바라볼 물체가 없는 곳은 제외 */
+const GAZE_HEIGHT: Partial<Record<InterestKind, number>> = { grass: 0.08, flower: 0.25, pot: 0.3, car: 0.5, food: 0.05, bench: 0.45 };
 
 export class Game {
   phase: Phase = 'menu';
@@ -70,6 +73,9 @@ export class Game {
   private lastEarTwitch = -10;
   /** 이스터 에그: 체형 최대일 때 풍선처럼 떠다니기 */
   private readonly balloon = new BalloonFloat();
+  /** 시선: 바라볼 수 있는 대상(관심 지점, 주민 얼굴)과 고르는 규칙 */
+  private gazePoints: GazePoint[] = [];
+  private readonly gazePicker: GazePicker;
   private floatHeight = 0;
   private wasBalloon = false;
   private progressCheck = { at: 0, x: 0, z: 0 };
@@ -107,6 +113,11 @@ export class Game {
     this.npc = new Resident(this.map.npcSpot.x, this.map.npcSpot.z, -2.4);
     this.stage.scene.add(this.stationBowl.group, this.userBowl.group, this.npc.group);
     this.map.collision.circles.push({ x: this.npc.x, z: this.npc.z, r: 0.28 });
+    this.gazePicker = new GazePicker(this.rng);
+    this.gazePoints = [
+      ...this.map.interests.filter((i) => GAZE_HEIGHT[i.kind] !== undefined).map((i) => ({ x: i.x, y: GAZE_HEIGHT[i.kind]!, z: i.z })),
+      { x: this.npc.x, y: 1.55, z: this.npc.z }, // 주민 얼굴
+    ];
 
     this.cam = new CameraRig(container.clientWidth / container.clientHeight);
     this.cam.attach(this.stage.renderer.domElement, () => this.time);
@@ -259,8 +270,11 @@ export class Game {
     if (this.eating) animBehavior = this.eating.seq.animBehavior;
     else if (this.mode === 'manual' && this.phase === 'play') animBehavior = 'idle';
     else if (b.id === 'eat') animBehavior = 'idle';
+    const view = { x: this.ctrl.x, z: this.ctrl.z, heading: this.ctrl.heading, eyeY: this.floatHeight + 0.25 * this.ctrl.scale };
+    const lookAt = this.gazePicker.update(now, view, this.gazePoints);
     const pose = this.animator.update(
       {
+        gaze: lookAt ? gazeAngles(view, lookAt) : null,
         behavior: animBehavior,
         progress: this.brain.progress(now),
         elapsed: now - b.startedAt,
