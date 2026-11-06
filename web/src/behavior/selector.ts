@@ -1,5 +1,5 @@
 import { range, type Rng } from '../core/rng';
-import { REST_BEHAVIORS, type BehaviorChoice, type BehaviorContext, type BehaviorId } from './types';
+import { LYING_BEHAVIORS, REST_BEHAVIORS, type BehaviorChoice, type BehaviorContext, type BehaviorId } from './types';
 
 /** 행동별 지속 시간 범위 (초) */
 export const DURATION: Record<BehaviorId, [number, number]> = {
@@ -11,6 +11,12 @@ export const DURATION: Record<BehaviorId, [number, number]> = {
   groom: [8, 11],
   nap: [20, 40],
   eat: [5, 7],
+  loaf: [10, 20],
+  sideLie: [15, 30],
+  bellyUp: [6, 12],
+  stretch: [3, 3.8],
+  tailWrap: [12, 25],
+  manSit: [8, 15],
 };
 
 /** 행동이 끝난 뒤 다시 고를 수 있을 때까지의 대기 시간 (초). 그루밍 과다 반복 방지 (기획서 5.2) */
@@ -19,6 +25,10 @@ export const COOLDOWN: Partial<Record<BehaviorId, number>> = {
   nap: 120,
   sniff: 6,
   eat: 30,
+  sideLie: 60,
+  bellyUp: 90,
+  stretch: 20,
+  manSit: 45,
 };
 
 const SNIFF_TARGETS = ['grass', 'flower', 'pot', 'car'] as const;
@@ -38,6 +48,12 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
     groom: 0,
     nap: 0,
     eat: 0,
+    loaf: 1,
+    sideLie: 0.15,
+    bellyUp: 0.15,
+    stretch: 0,
+    tailWrap: 0.4,
+    manSit: ctx.fold ? 0.9 : 0.12,
   };
 
   const resting = ctx.last !== null && REST_BEHAVIORS.includes(ctx.last);
@@ -47,10 +63,15 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
     w.nap += 0.8; // 그루밍 후 휴식
   }
 
+  // 자고 일어나면 기지개부터 (걷기보다 먼저 나오도록 크게)
+  if (ctx.last !== null && LYING_BEHAVIORS.includes(ctx.last)) w.stretch = 4;
+
   if (ctx.activeTime > 45) {
     w.walk *= 0.4;
     w.sit += 1.5;
     w.nap += 0.6;
+    w.sideLie += 0.8;
+    w.tailWrap += 0.6;
   }
   if (ctx.activeTime > 90) w.nap += 1.5;
 
@@ -58,6 +79,8 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
   if (ctx.nearby.some((k) => (REST_SPOTS as readonly string[]).includes(k))) {
     w.nap += 1;
     w.sit += 0.5;
+    w.sideLie += 0.8; // 햇볕 자리에서 늘어지기
+    w.bellyUp += 0.6;
   }
   if (ctx.nearby.includes('food') && ctx.hunger < 70) w.eat = 5;
 

@@ -5,8 +5,8 @@ export const POSTURE_MOVE_THRESHOLD = 0.12;
 
 /**
  * 이동은 걷기(선) 자세에서만 허용한다. (지시서 1단계 6번: 앉은 채로 걷기 금지)
- * 앉기·엎드리기 상태에서 이동이 필요하면, 호출하는 쪽이 이동을 멈추고 일어서기를 먼저 요청한다.
+ * 앉기·엎드리기(뒤집기·기지개·아저씨 앉기 포함) 상태에서 이동이 필요하면, 호출하는 쪽이 이동을 멈추고 일어서기를 먼저 요청한다.
  */
-export function postureBlocksMovement(p: Pick<CatPose, 'sit' | 'lie'>): boolean {
-  return Math.max(p.sit, p.lie) > POSTURE_MOVE_THRESHOLD;
+export function postureBlocksMovement(p: Pick<CatPose, 'sit' | 'lie'> & Partial<Pick<CatPose, 'roll' | 'stretch' | 'manSit'>>): boolean {
+  return Math.max(p.sit, p.lie, p.roll ?? 0, p.stretch ?? 0, p.manSit ?? 0) > POSTURE_MOVE_THRESHOLD;
 }

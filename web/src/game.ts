@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { AudioManager } from './audio/AudioManager';
-import { BehaviorBrain } from './behavior/brain';
+import { BehaviorBrain, type Senses } from './behavior/brain';
 import type { BehaviorId, InterestKind } from './behavior/types';
 import { CameraRig, type CameraMode } from './camera/CameraRig';
 import { effectiveScale, girthScale, type CatAppearance } from './cat/appearance';
@@ -366,7 +366,7 @@ export class Game {
   // ---------------------------------------------------------------- 자율 행동 실행
 
   private updateAuto(dt: number, now: number): void {
-    const senses = { nearby: this.nearbyKinds(), hunger: this.save.hunger };
+    const senses = this.senses();
     const before = this.brain.current;
     if (this.brain.update(dt, now, senses)) this.onBehaviorEnd(before.id);
     const cur = this.brain.current;
@@ -417,7 +417,7 @@ export class Game {
 
   private finishBehavior(now: number): void {
     const before = this.brain.current.id;
-    this.brain.finishCurrent(now, { nearby: this.nearbyKinds(), hunger: this.save.hunger });
+    this.brain.finishCurrent(now, this.senses());
     this.onBehaviorEnd(before);
     this.onBehaviorStart(this.brain.current.id, now);
   }
@@ -556,6 +556,10 @@ export class Game {
       if (isFree(this.map.collision, x, z, 0.2)) return { x, z };
     }
     return null;
+  }
+
+  private senses(): Senses {
+    return { nearby: this.nearbyKinds(), hunger: this.save.hunger, fold: this.save.cat.ear === 'fold' };
   }
 
   private nearbyKinds(): InterestKind[] {

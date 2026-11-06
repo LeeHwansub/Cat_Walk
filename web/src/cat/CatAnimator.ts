@@ -58,6 +58,12 @@ export class CatAnimator {
     p.pawToFace += (t.pawToFace - p.pawToFace) * k(4);
     p.lick += (t.lick - p.lick) * k(6);
     p.eyesClosed += (t.eyesClosed - p.eyesClosed) * k(t.eyesClosed > p.eyesClosed ? 1.2 : 5);
+    const up = input.standingUp;
+    p.tuck += (t.tuck - p.tuck) * k(up ? STAND_UP_RATE : 2);
+    p.roll += (t.roll - p.roll) * k(up ? STAND_UP_RATE : 1.5); // 몸을 굴리는 건 천천히
+    p.stretch += (t.stretch - p.stretch) * k(up ? STAND_UP_RATE : 4);
+    p.tailWrap += (t.tailWrap - p.tailWrap) * k(1.2);
+    p.manSit += (t.manSit - p.manSit) * k(up ? STAND_UP_RATE : 2.5);
     p.float = input.floating ?? 0;
     return p;
   }
@@ -113,6 +119,64 @@ export class CatAnimator {
         t.tailUp = 0.4;
         t.tailWag = 0.1;
         break;
+      case 'loaf':
+        // 식빵: 앞발을 가슴 아래로 접어 넣고 반쯤 눈을 감는다
+        t.lie = 1;
+        t.tuck = 1;
+        t.tailUp = 0;
+        t.tailWag = 0.04;
+        t.headPitch = 0.05;
+        t.headYaw = Math.sin(e * 0.25 + this.lookSeed) * 0.25;
+        t.eyesClosed = 0.35;
+        break;
+      case 'sideLie':
+        t.lie = 1;
+        t.roll = 0.5;
+        t.tailUp = 0;
+        t.tailWag = 0.05;
+        t.headPitch = 0.1;
+        t.eyesClosed = smooth(0.1, 0.3, input.progress) * 0.9 * (1 - smooth(0.9, 1, input.progress));
+        break;
+      case 'bellyUp':
+        // 배를 보이고 뒤집어 누움: 편안할 때만 보이는 자세. 고개를 옆으로 꺾고 꼬리를 살랑인다
+        t.lie = 1;
+        t.roll = 1;
+        t.tailUp = 0;
+        t.tailWag = 0.15;
+        t.headTilt = 0.3;
+        t.headYaw = 0.3;
+        t.eyesClosed = 0.4;
+        break;
+      case 'stretch': {
+        // 기지개: 앞다리를 쭉 뻗고 가슴을 낮춘 채 엉덩이는 들고, 눈을 지그시 감는다
+        const s = smooth(0, 0.2, input.progress) * (1 - smooth(0.75, 1, input.progress));
+        t.stretch = s;
+        t.headPitch = -0.25 * s;
+        t.eyesClosed = 0.7 * s;
+        t.tailUp = 0.9;
+        t.tailWag = 0.1;
+        break;
+      }
+      case 'tailWrap':
+        // 꼬리 감고 엎드리기: 꼬리로 몸을 감싸고 고개를 묻는다
+        t.lie = 1;
+        t.tuck = 0.6;
+        t.tailWrap = 1;
+        t.tailUp = 0;
+        t.tailWag = 0.03;
+        t.headPitch = 0.3;
+        t.headYaw = 0.2;
+        t.eyesClosed = smooth(0.1, 0.3, input.progress) * (1 - smooth(0.92, 1, input.progress));
+        break;
+      case 'manSit':
+        // 아저씨 앉기 (스코티시폴드): 엉덩이를 대고 상체를 세워 사람처럼 앉는다
+        t.sit = 1;
+        t.manSit = 1;
+        t.tailUp = 0;
+        t.tailWag = 0.08;
+        t.headPitch = 0.05;
+        t.headYaw = Math.sin(e * 0.3 + this.lookSeed) * 0.35;
+        break;
       case 'lickLips':
         // 먹고 나서 고개를 들고 입 주변을 핥는다
         t.headPitch = -0.05;
@@ -132,6 +196,10 @@ export class CatAnimator {
       t.tailUp = 0.85;
       t.tailWag = 0.25;
       t.pawLift = 0;
+      t.tuck = 0;
+      t.roll = 0;
+      t.stretch = 0;
+      t.manSit = 0;
     }
     const fl = input.floating ?? 0;
     if (fl > 0.01) {
@@ -140,6 +208,11 @@ export class CatAnimator {
       t.lie *= 1 - fl;
       t.speed *= 1 - fl;
       t.pawLift *= 1 - fl;
+      t.tuck *= 1 - fl;
+      t.roll *= 1 - fl;
+      t.stretch *= 1 - fl;
+      t.manSit *= 1 - fl;
+      t.tailWrap *= 1 - fl;
       t.tailUp = t.tailUp * (1 - fl) + 0.75 * fl;
       t.tailWag = Math.max(t.tailWag, 0.35 * fl);
       t.headPitch = t.headPitch * (1 - fl) + 0.25 * fl; // 아래를 내려다본다
@@ -148,6 +221,10 @@ export class CatAnimator {
       t.sit = 0;
       t.lie = 0;
       t.pawLift = 0;
+      t.tuck = 0;
+      t.roll = 0;
+      t.stretch = 0;
+      t.manSit = 0;
     }
     return t;
   }

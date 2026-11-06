@@ -5,6 +5,7 @@ import type { BehaviorChoice, BehaviorId, InterestKind } from './types';
 export interface Senses {
   nearby: readonly InterestKind[];
   hunger: number;
+  fold?: boolean;
 }
 
 export interface CurrentBehavior extends BehaviorChoice {
@@ -38,7 +39,7 @@ export class BehaviorBrain {
   finishCurrent(now: number, senses: Senses): void {
     this.endCurrent(now);
     const next = chooseBehavior(
-      { now, last: this.last, activeTime: this.activeTime, nearby: senses.nearby, hunger: senses.hunger, cooldowns: this.cooldowns },
+      { now, last: this.last, activeTime: this.activeTime, nearby: senses.nearby, hunger: senses.hunger, fold: senses.fold, cooldowns: this.cooldowns },
       this.rng,
     );
     this.current = { ...next, startedAt: now };

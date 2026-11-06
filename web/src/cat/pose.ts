@@ -31,6 +31,16 @@ export interface CatPose {
   eyesClosed: number;
   /** 0 ~ 1 풍선처럼 떠 있음 (이스터 에그): 다리를 늘어뜨리고 몸이 더 부푼다 */
   float: number;
+  /** 0 ~ 1 앞발을 몸 아래로 접어 넣기 (식빵) */
+  tuck: number;
+  /** 0 바로 ~ 0.5 옆으로 눕기 ~ 1 배 보이고 눕기 (몸통을 길이 축으로 굴린다) */
+  roll: number;
+  /** 0 ~ 1 기지개: 앞다리를 앞으로 뻗고 가슴을 낮춘다 */
+  stretch: number;
+  /** 0 ~ 1 꼬리를 몸에 감기 */
+  tailWrap: number;
+  /** 0 ~ 1 아저씨 앉기: 엉덩이를 대고 상체를 세워 뒷다리를 앞으로 뻗는다 */
+  manSit: number;
 }
 
 export function neutralPose(): CatPose {
@@ -49,5 +59,10 @@ export function neutralPose(): CatPose {
     lick: 0,
     eyesClosed: 0,
     float: 0,
+    tuck: 0,
+    roll: 0,
+    stretch: 0,
+    tailWrap: 0,
+    manSit: 0,
   };
 }

@@ -15,6 +15,19 @@ const SPINE_SIT = -0.68;
 const SPINE_STAND = -0.05; // 앞쪽을 살짝 들어 어깨와 엉덩이 높이를 맞춘다
 const SPINE_LIE = -0.03;
 const SHOULDER_Z = 0.27;
+// 포즈 (지시서 2단계 7번)
+/** 배 보이고 눕기(roll 1)일 때 몸통을 굴리는 각도. 완전히 뒤집지 않고 살짝 비스듬하게 */
+const ROLL_MAX = 2.75;
+/** 아저씨 앉기: 상체를 거의 세운다 */
+const SPINE_MAN = -1.2;
+const HIP_MAN = 0.062;
+/** 기지개: 앞쪽을 낮추는 각도 */
+const STRETCH_PITCH = 0.42;
+/** 꼬리 감기: 꼬리가 바닥에서 몸을 감싸는 원의 중심(엉덩이 기준 z)과 시작 각도 */
+const TAIL_WRAP_CENTER_Z = -0.02;
+const TAIL_WRAP_START = 0.25;
+const TAIL_BASE = new THREE.Vector3(0, 0.035, -0.075);
+const BACK = new THREE.Vector3(0, 0, -1);
 const STRIDE = 0.15;
 const STANCE = 0.62; // 한 주기 중 발이 땅에 닿아 있는 비율
 const TAIL_SEGMENTS = 9;
@@ -82,6 +95,11 @@ export class ProceduralCatRig implements CatRig {
   private earTwitch = { at: 3, side: 0, until: 0 };
   private lastTime = 0;
   private readonly tmp = new THREE.Vector3();
+  private readonly wrapDirs = Array.from({ length: TAIL_SEGMENTS }, () => new THREE.Vector3());
+  private readonly qa = new THREE.Quaternion();
+  private readonly qb = new THREE.Quaternion();
+  private readonly qc = new THREE.Quaternion();
+  private readonly euler = new THREE.Euler();
 
   constructor(appearance: CatAppearance) {
     this.build();
@@ -165,35 +183,40 @@ export class ProceduralCatRig implements CatRig {
     const bob = Math.sin(p.gaitPhase * Math.PI * 4) * 0.006 * p.speed;
     const breathe = Math.sin(time * (p.lie > 0.5 ? 1.4 : 2.4)) * (p.lie > 0.5 ? 0.02 : 0.012);
     // 통통하면 몸통 반지름이 커지므로 앉기·엎드리기 높이도 같이 올려 몸이 땅에 묻히지 않게 한다
-    const hipY = lerp(lerp(HIP_STAND * this.legScale, HIP_SIT * this.girth, p.sit), HIP_LIE * this.girth, p.lie) + bob * (1 - settle);
+    const rollA = p.roll * ROLL_MAX;
+    // 옆으로 누우면 아래쪽 다리가 땅에 묻히지 않게, 식빵은 접은 앞발 위에 올라앉게 조금 높인다
+    const lieY = HIP_LIE * this.girth + 0.012 * Math.sin(Math.min(rollA, Math.PI / 2)) + 0.01 * p.tuck;
+    let hipY = lerp(lerp(HIP_STAND * this.legScale, HIP_SIT * this.girth, p.sit), lieY, p.lie) + bob * (1 - settle);
+    hipY = lerp(hipY, HIP_MAN * this.girth, p.manSit);
     // 고개를 깊이 숙이면(먹기·냄새 맡기) 앞쪽을 낮춰 앞다리를 굽힌다
     const crouch = Math.max(0, p.headPitch - 0.6) * 0.5 * (1 - settle);
-    const spinePitch = lerp(lerp(SPINE_STAND, SPINE_SIT, p.sit), SPINE_LIE, p.lie) + crouch + Math.sin(p.gaitPhase * Math.PI * 4 + 1) * 0.015 * p.speed;
+    let spinePitch = lerp(lerp(SPINE_STAND, SPINE_SIT, p.sit), SPINE_LIE, p.lie) + crouch + Math.sin(p.gaitPhase * Math.PI * 4 + 1) * 0.015 * p.speed;
+    spinePitch = lerp(spinePitch, SPINE_MAN, p.manSit) + STRETCH_PITCH * p.stretch;
     this.hips.position.set(0, hipY, -0.13);
     this.spine.rotation.set(spinePitch, 0, Math.sin(p.gaitPhase * Math.PI * 2) * 0.03 * p.speed);
     this.chest.scale.set(1 + breathe, 1 + breathe, 1);
 
     // 목과 머리: 머리는 몸이 흔들려도 수평을 유지한다 (고양이 특유의 안정된 머리)
     // 머리를 숙일 때는 목도 함께 내려 입이 바닥(그릇, 풀)에 닿게 한다
-    const neckPitch = lerp(-0.75, -0.2, p.lie) + p.sit * 0.25 + Math.max(0, p.headPitch - 0.2) * 0.9;
+    // 아저씨 앉기는 상체가 서 있는 만큼 목을 앞으로, 기지개는 고개를 들어 앞을 본다
+    const neckPitch = lerp(-0.75, -0.2, p.lie) + p.sit * 0.25 + Math.max(0, p.headPitch - 0.2) * 0.9 + 0.45 * p.manSit - 0.35 * p.stretch;
     this.neck.rotation.x = neckPitch;
-    this.head.rotation.set(p.headPitch - spinePitch - neckPitch, p.headYaw, p.headTilt, 'YXZ');
+    // 몸을 굴리면 머리는 일부만 따라 돌린다 (바닥에 뺨을 대거나 고개를 꺾은 모양)
+    this.head.rotation.set(p.headPitch - spinePitch - neckPitch, p.headYaw, p.headTilt - rollA * 0.35, 'YXZ');
     this.head.position.y = 0.075 + Math.sin(time * 18) * 0.004 * p.lick;
 
     // 풍선: 몸통이 더 동그랗게 부푼다 (체형 둘레에 곱함)
     const inflated = this.baseGirth * (1 + 0.28 * p.float);
     if (Math.abs(inflated - this.girth) > 1e-3) this.applyGirth(inflated);
-    if (p.float > 0.01) {
-      // 둥실거리며 살짝 기울어진다
-      this.hips.rotation.z = Math.sin(time * 0.9) * 0.06 * p.float;
-      this.hips.rotation.x = Math.sin(time * 0.7 + 1) * 0.04 * p.float;
-    } else {
-      this.hips.rotation.set(0, 0, 0);
-    }
+    // 옆으로 눕기·배 보이고 눕기: 몸통 전체를 길이 축으로 굴린다
+    // 풍선: 둥실거리며 살짝 기울어진다
+    const swayZ = p.float > 0.01 ? Math.sin(time * 0.9) * 0.06 * p.float : 0;
+    const swayX = p.float > 0.01 ? Math.sin(time * 0.7 + 1) * 0.04 * p.float : 0;
+    this.hips.rotation.set(swayX, 0, rollA + swayZ);
 
     this.updateEyes(p, time);
     this.updateEars(time, dt);
-    this.updateTail(p, time);
+    this.updateTail(p, time, hipY);
 
     // 다리 IK: 몸통 자세가 정해진 뒤 어깨/엉덩이 위치를 계산해서 발을 지면에 딛게 한다
     this.root.updateMatrixWorld(true);
@@ -426,6 +449,21 @@ export class ProceduralCatRig implements CatRig {
     fz = lerp(lerp(fz, sitZ, p.sit), lieZ, p.lie);
     fy = lerp(fy, lieY, p.lie);
 
+    if (leg.front) {
+      // 식빵: 앞발을 가슴 아래로 접어 넣는다
+      const tk = p.tuck * p.lie;
+      fz = lerp(fz, sz - 0.035, tk);
+      fy = lerp(fy, 0.035, tk);
+      // 기지개: 앞다리를 앞으로 쭉 뻗는다
+      fz = lerp(fz, sz + 0.19, p.stretch);
+      fy = lerp(fy, 0, p.stretch);
+    } else {
+      fz = lerp(fz, standZ - 0.03, p.stretch);
+      // 아저씨 앉기: 뒷다리를 앞으로 뻗는다
+      fz = lerp(fz, -0.13 + 0.17, p.manSit);
+      fy = lerp(fy, 0.012, p.manSit);
+    }
+
     // 풍선: 발을 닿지 않는 아래쪽으로 두어 다리를 곧게 늘어뜨리고, 천천히 허우적거린다
     if (p.float > 0.001) {
       const paddle = Math.sin(this.lastTime * 2.2 + leg.phaseOffset * Math.PI * 2) * 0.03;
@@ -447,10 +485,36 @@ export class ProceduralCatRig implements CatRig {
       fz = lerp(fz, gz, p.pawLift);
     }
 
-    const ik = solveTwoBone(UPPER * this.legScale, LOWER * this.legScale, fz - sz, fy - sy, leg.bend);
+    const ls = this.legScale;
+    const ik = solveTwoBone(UPPER * ls, LOWER * ls, fz - sz, fy - sy, leg.bend);
     const parentPitch = leg.front ? spinePitch : 0;
-    leg.root.rotation.x = -ik.upper - parentPitch;
-    leg.knee.rotation.x = -ik.lower;
+    let upper = -ik.upper - parentPitch;
+    let lower = -ik.lower;
+
+    // 몸을 굴렸거나(옆·배) 상체를 세웠을 때(아저씨 앉기 앞발)는 발이 땅을 딛지 않는다.
+    // 이때는 몸 기준 방향으로 다리 자세를 정한다
+    const rollW = Math.min(1, p.roll * 2);
+    const manW = leg.front ? p.manSit : 0;
+    const w = Math.max(rollW, manW);
+    if (w > 0.001) {
+      let bz: number;
+      let by: number;
+      if (manW >= rollW) {
+        // 앞발을 배 앞에 축 늘어뜨린다
+        bz = -0.07;
+        by = -0.075;
+      } else {
+        // 옆으로 누우면 다리를 몸 바깥으로 쭉 뻗고, 뒤집으면 앞발을 가슴 쪽으로 오므린다
+        const belly = Math.max(0, p.roll * 2 - 1);
+        bz = lerp(leg.front ? 0.07 : -0.05, leg.front ? 0.035 : 0.04, belly);
+        by = lerp(-0.185, leg.front ? -0.085 : -0.11, belly);
+      }
+      const rk = solveTwoBone(UPPER * ls, LOWER * ls, bz * ls, by * ls, leg.bend);
+      upper = lerp(upper, -rk.upper, w);
+      lower = lerp(lower, -rk.lower, w);
+    }
+    leg.root.rotation.x = upper;
+    leg.knee.rotation.x = lower;
   }
 
   private updateEyes(p: CatPose, time: number): void {
@@ -493,8 +557,9 @@ export class ProceduralCatRig implements CatRig {
     });
   }
 
-  private updateTail(p: CatPose, time: number): void {
+  private updateTail(p: CatPose, time: number, hipY: number): void {
     const n = this.tail.length;
+    if (p.tailWrap > 0.001) this.computeWrapDirs(hipY);
     for (let i = 0; i < n; i++) {
       const t = i / (n - 1);
       // 세운 꼬리: 위로 솟았다가 끝이 살짝 앞으로 말린 물음표 모양
@@ -504,6 +569,40 @@ export class ProceduralCatRig implements CatRig {
       const curlSide = i === 0 ? 0 : (p.sit + p.lie) * 0.22;
       const wave = Math.sin(time * (2.2 + p.tailWag * 2) - i * 0.55) * p.tailWag * (0.08 + t * 0.2);
       this.tail[i].rotation.set(lerp(downCurve, upCurve, p.tailUp), curlSide + wave, 0);
+      if (p.tailWrap > 0.001) {
+        // 꼬리 감기 경로를 따르는 회전 (부모 마디 방향 기준)으로 섞는다
+        this.qa.setFromUnitVectors(BACK, this.wrapDirs[i]);
+        if (i > 0) this.qa.premultiply(this.qb.setFromUnitVectors(BACK, this.wrapDirs[i - 1]).invert());
+        this.qc.setFromEuler(this.euler.set(0, wave * 0.6, 0));
+        this.qa.multiply(this.qc);
+        this.tail[i].quaternion.slerp(this.qa, p.tailWrap);
+      }
+    }
+  }
+
+  /**
+   * 꼬리 감기 경로: 꼬리 뿌리에서 엉덩이 뒤 바닥으로 내려간 뒤, 몸을 중심으로 한 원을 따라
+   * 몸 옆으로 돌아 앞쪽을 향한다. 각 마디가 향할 방향(엉덩이 기준)을 구한다.
+   * 마디별 각도를 직접 정하면 기울어진 마디에서 옆으로 꺾을 때 꼬리가 들리므로 경로로 계산한다.
+   */
+  private computeWrapDirs(hipY: number): void {
+    const segLen = TAIL_SEG_LEN * this.tail[0].scale.x;
+    const groundY = -hipY + 0.016; // 꼬리 굵기만큼 띄운다
+    const r = 0.085 * this.girth + 0.022; // 몸 옆을 지나도록 체형에 맞춘 반지름
+    const start = new THREE.Vector3(r * Math.sin(TAIL_WRAP_START), groundY, TAIL_WRAP_CENTER_Z - r * Math.cos(TAIL_WRAP_START));
+    const base = TAIL_BASE.clone();
+    const drop = base.distanceTo(start);
+    const at = (d: number, out: THREE.Vector3) => {
+      if (d <= drop) return out.lerpVectors(base, start, d / drop);
+      const a = TAIL_WRAP_START + (d - drop) / r;
+      return out.set(r * Math.sin(a), groundY, TAIL_WRAP_CENTER_Z - r * Math.cos(a));
+    };
+    const p0 = new THREE.Vector3();
+    const p1 = new THREE.Vector3();
+    for (let i = 0; i < this.wrapDirs.length; i++) {
+      at(i * segLen, p0);
+      at((i + 1) * segLen, p1);
+      this.wrapDirs[i].subVectors(p1, p0).normalize();
     }
   }
 }
