@@ -64,6 +64,11 @@ npm run dev     # http://localhost:5173 을 Chrome에서 연다
 | 14 | 앉아 있다가 가끔 그루밍: 앞발 들기 → 핥기 → 얼굴 닦기 → 내리기 |
 | 15 | 오래 돌아다니면 웅크려 낮잠 (눈 감음, 골골송) |
 | 16 | 같은 행동만 반복하지 않는다 |
+| 16-1 | (포즈) 가끔 식빵 자세(앞발을 몸 아래로 접음), 꼬리 감고 엎드리기, 옆으로 눕기, 햇볕 자리에서 배 보이고 눕기를 한다 |
+| 16-2 | 눕거나 자고 일어나면 바로 기지개(앞다리 쭉, 엉덩이 들기)를 켠다 |
+| 16-3 | 접힌 귀 고양이(뽀리·레오)는 엉덩이를 대고 사람처럼 앉는 '아저씨 앉기'를 자주 한다. 선 귀 고양이는 드물게 |
+| 16-4 | 어떤 포즈에서든 WASD를 누르면 0.5초 안에 일어나서 걷는다. 누운 채 미끄러지지 않는다 |
+| 16-5 | 배 보이고 누운 고양이를 클릭하면 몸을 바로 하고 앉아서 반응한다 |
 
 ### 2.4 먹이·주민·쓰다듬기·소리
 | # | 할 일 | 기대 결과 |
@@ -95,6 +100,7 @@ Chrome 개발자 도구(⌥⌘I) → Console. 빨간 오류가 없어야 한다.
 ```js
 const g = __catWalk;
 g.brain.interrupt('groom', 10, g.time);   // 그루밍 ('sit', 'nap', 'sniff', 'lookAround', 'walk')
+g.brain.interrupt('bellyUp', 15, g.time); // 포즈 ('loaf', 'sideLie', 'bellyUp', 'stretch', 'tailWrap', 'manSit')
 g.audio.meow('hungry');                     // 울음 ('normal', 'curious', 'hungry') — 4초 간격 제한
 g.audio.purr(5);                            // 골골송 5초
 g.audio.loadedCount;                        // 불러온 소리 파일 수 (8이면 정상: 울음 6 + 골골송 2)
