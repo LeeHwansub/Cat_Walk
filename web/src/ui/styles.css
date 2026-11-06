@@ -147,6 +147,9 @@ kbd {
 
 .create-panel {
   width: min(340px, 92vw);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .field {

@@ -1,4 +1,4 @@
-import { BUILD_RANGE, clampBuild, clampSize, EYE_COLORS, FUR_COLORS, PATTERNS, PRESETS, SIZE_RANGE, type CatAppearance, type GrowthStage } from '../cat/appearance';
+import { ACCESSORIES, BUILD_RANGE, clampBuild, clampSize, EAR_TYPES, EYE_COLORS, FUR_COLORS, PATTERNS, PRESETS, SIZE_RANGE, type CatAppearance, type GrowthStage } from '../cat/appearance';
 import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
 
@@ -65,6 +65,8 @@ export function bindUi(game: Game): void {
     swatches('opt-fur', FUR_COLORS.map((c) => ({ hex: c.hex, label: c.label, on: draft.furColor === c.hex, pick: () => apply({ furColor: c.hex }) })));
     chips('opt-pattern', PATTERNS.map((p) => ({ label: p.label, on: draft.pattern === p.id, pick: () => apply({ pattern: p.id }) })));
     swatches('opt-eye', EYE_COLORS.map((c) => ({ hex: c.hex, label: c.label, on: draft.eyeColor === c.hex, pick: () => apply({ eyeColor: c.hex }) })));
+    chips('opt-ear', EAR_TYPES.map((e) => ({ label: e.label, on: draft.ear === e.id, pick: () => apply({ ear: e.id }) })));
+    chips('opt-accessory', ACCESSORIES.map((x) => ({ label: x.label, on: draft.accessory === x.id, pick: () => apply({ accessory: x.id }) })));
     // 단계를 바꾸면 크기 조절 값을 새 단계 범위 안으로 맞춘다 (D-24)
     const pickStage = (stage: GrowthStage) => apply({ stage, size: clampSize(stage, draft.size) });
     chips('opt-stage', [

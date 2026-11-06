@@ -61,6 +61,16 @@ export class ProceduralCatRig implements CatRig {
   private readonly legs: Leg[] = [];
   private readonly eyes: THREE.Group[] = [];
   private readonly ears: THREE.Mesh[] = [];
+  private readonly earTwitchAmt = [0, 0];
+  private earBaseX = 0;
+  /** 이마 M자 무늬 (줄무늬 고양이) */
+  private mMark!: THREE.Mesh;
+  private readonly mMarkMat = new THREE.MeshStandardMaterial({ transparent: true, depthWrite: false, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 });
+  /** 꼬리 끝 (줄무늬 고양이는 진하게) */
+  private tailTip!: THREE.Mesh;
+  private readonly tailTipMat = new THREE.MeshStandardMaterial({ roughness: 0.92 });
+  /** 목걸이 + 하트 태그 */
+  private readonly collar = new THREE.Group();
 
   private readonly furMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
   private readonly lightMat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
@@ -102,6 +112,12 @@ export class ProceduralCatRig implements CatRig {
         this.lightMat.color.copy(light);
         this.pawMat.color.copy(light);
         break;
+      case 'tabbyWhite':
+        // 고등어 줄무늬 + 흰 가슴·흰 양말 (뽀리)
+        this.furMat.map = tabbyTexture(fur, 0.5);
+        this.lightMat.color.copy(white);
+        this.pawMat.color.copy(white);
+        break;
       case 'calico':
         this.furMat.map = calicoTexture(fur);
         this.lightMat.color.copy(white);
@@ -109,15 +125,31 @@ export class ProceduralCatRig implements CatRig {
         break;
     }
     this.furMat.needsUpdate = true;
+
+    // 줄무늬 고양이: 이마 M자 무늬와 진한 꼬리 끝
+    const tabby = a.pattern === 'cheese' || a.pattern === 'mackerel' || a.pattern === 'tabbyWhite';
+    const stripe = fur.clone().multiplyScalar(a.pattern === 'cheese' ? 0.62 : 0.42);
+    this.mMark.visible = tabby;
+    this.mMarkMat.map?.dispose();
+    this.mMarkMat.map = tabby ? mMarkTexture(stripe) : null;
+    this.mMarkMat.needsUpdate = true;
+    this.tailTip.material = tabby ? this.tailTipMat : this.furMat;
+    this.tailTipMat.color.copy(fur.clone().multiplyScalar(a.pattern === 'cheese' ? 0.7 : 0.38));
+
     this.irisMat.color.set(a.eyeColor);
     this.irisMat.emissive.set(a.eyeColor);
 
     // 아기 비율: 머리·눈은 몸에 비해 크고, 다리·꼬리는 짧다 (지시서 2단계 성장 단계)
     const kitten = a.stage === 'kitten';
+    // 스코티시폴드(접힌 귀) 실루엣: 더 둥글고 넓은 머리, 조금 큰 눈, 조금 짧은 다리
+    const fold = a.ear === 'fold';
     this.root.scale.setScalar(effectiveScale(a.stage, a.size));
-    this.headScaler.scale.setScalar(kitten ? 1.22 : 1);
+    const head = kitten ? 1.22 : 1;
+    this.headScaler.scale.set(head * (fold ? 1.07 : 1), head * (fold ? 0.97 : 1), head);
     this.eyeScale = kitten ? 1.18 : 1;
-    this.legScale = kitten ? 0.84 : 1;
+    this.legScale = (kitten ? 0.84 : 1) * (fold ? 0.93 : 1);
+    this.setEars(fold);
+    this.collar.visible = a.accessory === 'heartTag';
     for (const leg of this.legs) leg.root.scale.setScalar(this.legScale);
     this.tail[0].scale.setScalar(kitten ? 0.8 : 1);
     this.baseGirth = girthScale(a.build);
@@ -166,6 +198,36 @@ export class ProceduralCatRig implements CatRig {
     // 다리 IK: 몸통 자세가 정해진 뒤 어깨/엉덩이 위치를 계산해서 발을 지면에 딛게 한다
     this.root.updateMatrixWorld(true);
     for (const leg of this.legs) this.solveLeg(leg, p, spinePitch);
+  }
+
+  /** 분홍 목걸이 + 하트 태그 (뽀리). 목 굵기를 따라 커진다 */
+  private buildCollar(): void {
+    const band = new THREE.MeshStandardMaterial({ color: '#e0607e', roughness: 0.55 });
+    const tagMat = new THREE.MeshStandardMaterial({ color: '#f39ab4', roughness: 0.3, metalness: 0.35 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.0065, 8, 28), band);
+    ring.rotation.x = Math.PI / 2;
+    this.collar.add(ring);
+    const heart = new THREE.Shape();
+    heart.moveTo(0, -0.5);
+    heart.bezierCurveTo(-0.15, -0.3, -0.55, -0.05, -0.5, 0.25);
+    heart.bezierCurveTo(-0.45, 0.55, -0.1, 0.55, 0, 0.3);
+    heart.bezierCurveTo(0.1, 0.55, 0.45, 0.55, 0.5, 0.25);
+    heart.bezierCurveTo(0.55, -0.05, 0.15, -0.3, 0, -0.5);
+    const tag = new THREE.Mesh(new THREE.ExtrudeGeometry(heart, { depth: 0.12, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: 2 }), tagMat);
+    // 태그는 고리 앞쪽에서 아래로 늘어진다
+    tag.scale.setScalar(0.022);
+    tag.position.set(0, -0.016, 0.054);
+    this.collar.add(tag);
+    // 목은 앞으로 약 0.75rad 기울어 있다. 고리도 같이 기울면 앞쪽이 들려 주둥이와 겹치므로,
+    // 반대로 돌려 서 있을 때 수평이 되게 하고 목 아래쪽(가슴과 만나는 곳)에 둔다
+    this.collar.rotation.x = 0.8;
+    this.collar.position.set(0, -0.004, -0.012);
+    this.collar.traverse((o) => {
+      o.castShadow = true;
+      o.layers.set(HEAD_LAYER); // 캣캠 화면을 가리지 않게
+    });
+    this.neck.add(this.collar);
+    this.girthPart(this.collar, 'xz', 0.7);
   }
 
   private girthPart(mesh: THREE.Object3D, axes: 'xy' | 'xz' | 'xyz', power: number, belly = false): void {
@@ -227,6 +289,7 @@ export class ProceduralCatRig implements CatRig {
     this.spine.add(this.neck);
     const neckMesh = add(this.neck, new THREE.CapsuleGeometry(0.045, 0.05, 6, 12), this.furMat, [0, 0.035, 0]);
     this.girthPart(neckMesh, 'xz', 0.7);
+    this.buildCollar();
     neckMesh.layers.set(HEAD_LAYER);
     // 캣캠: 어깨 위에서 가슴 쪽을 내려다보는 위치. 참조 영상처럼 지면, 가슴 털, 앞발이 보인다.
     // (몸통 안쪽 면은 뒷면 컬링으로 그려지지 않는다)
@@ -272,7 +335,8 @@ export class ProceduralCatRig implements CatRig {
       seg.position.set(0, i === 0 ? 0.035 : 0, i === 0 ? -0.075 : -TAIL_SEG_LEN);
       parent.add(seg);
       const r = lerp(0.021, 0.013, i / (TAIL_SEGMENTS - 1));
-      add(seg, new THREE.CapsuleGeometry(r, TAIL_SEG_LEN * 0.9, 4, 10), this.furMat, [0, 0, -TAIL_SEG_LEN / 2], undefined, Math.PI / 2);
+      const m = add(seg, new THREE.CapsuleGeometry(r, TAIL_SEG_LEN * 0.9, 4, 10), this.furMat, [0, 0, -TAIL_SEG_LEN / 2], undefined, Math.PI / 2);
+      if (i === TAIL_SEGMENTS - 1) this.tailTip = m;
       this.tail.push(seg);
       parent = seg;
     }
@@ -291,6 +355,12 @@ export class ProceduralCatRig implements CatRig {
     this.girthPart(add(h, sphere(0.042), this.furMat, [-0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5);
     add(h, sphere(0.03), this.lightMat, [0, -0.03, 0.056], [1.3, 0.75, 0.85]); // 주둥이
     add(h, sphere(0.009, 10, 8), pink, [0, -0.014, 0.083], [1.4, 0.8, 0.6]); // 코
+
+    // 이마 M자 무늬: 이마 곡면에 얇은 판을 붙인다
+    this.mMark = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.034), this.mMarkMat);
+    this.mMark.position.set(0, 0.033, 0.052);
+    this.mMark.rotation.x = -0.6;
+    h.add(this.mMark);
 
     for (const side of [1, -1]) {
       const ear = add(h, new THREE.ConeGeometry(0.032, 0.062, 4, 1), this.furMat, [0.036 * side, 0.054, -0.004], [1, 1, 0.45]);
@@ -393,13 +463,33 @@ export class ProceduralCatRig implements CatRig {
     for (const e of this.eyes) e.scale.set(this.eyeScale, this.eyeScale * lerp(1, 0.08, closed), this.eyeScale);
   }
 
+  /** 귀 형태: 선 귀 / 접힌 귀(앞으로 접혀 머리에 붙음) */
+  private setEars(fold: boolean): void {
+    this.ears.forEach((ear, i) => {
+      const side = i === 0 ? 1 : -1;
+      if (fold) {
+        ear.position.set(0.034 * side, 0.047, 0.008);
+        ear.rotation.set(1.05, (Math.PI / 5) * side, -0.45 * side);
+        ear.scale.set(1.05, 0.6, 0.45);
+      } else {
+        ear.position.set(0.036 * side, 0.054, -0.004);
+        ear.rotation.set(0, (Math.PI / 4) * side, -0.28 * side);
+        ear.scale.set(1, 1, 0.45);
+      }
+    });
+    this.earBaseX = fold ? 1.05 : 0;
+  }
+
   private updateEars(time: number, dt: number): void {
     if (time > this.earTwitch.at) {
       this.earTwitch = { at: time + 3 + Math.random() * 6, side: Math.random() < 0.5 ? 0 : 1, until: time + 0.25 };
     }
     this.ears.forEach((ear, i) => {
-      const target = time < this.earTwitch.until && i === this.earTwitch.side ? -0.5 : 0;
-      ear.rotation.x += (target - ear.rotation.x) * damp(20, dt);
+      // 귀 움찔: 기본 각도에서 잠깐 뒤로 젖혔다 돌아온다 (접힌 귀는 작게)
+      const amp = this.earBaseX > 0 ? -0.25 : -0.5;
+      const target = time < this.earTwitch.until && i === this.earTwitch.side ? amp : 0;
+      this.earTwitchAmt[i] += (target - this.earTwitchAmt[i]) * damp(20, dt);
+      ear.rotation.x = this.earBaseX + this.earTwitchAmt[i];
     });
   }
 
@@ -450,6 +540,35 @@ function tabbyTexture(fur: THREE.Color, darkness: number): THREE.CanvasTexture {
       g.stroke();
     }
   });
+}
+
+/** 이마 M자 무늬: 투명 바탕에 진한 줄 세 개 + M자 윗선 */
+function mMarkTexture(color: THREE.Color): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 88;
+  const g = c.getContext('2d')!;
+  g.strokeStyle = `#${color.getHexString()}`;
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.lineWidth = 9;
+  g.beginPath();
+  g.moveTo(18, 70);
+  g.lineTo(34, 20);
+  g.lineTo(64, 52);
+  g.lineTo(94, 20);
+  g.lineTo(110, 70);
+  g.stroke();
+  g.lineWidth = 7;
+  for (const x of [52, 64, 76]) {
+    g.beginPath();
+    g.moveTo(x, 8);
+    g.lineTo(x + (x - 64) * 0.15, 40);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /** 삼색: 흰 바탕에 주황·검정 얼룩 */
