@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { CatAppearance } from './appearance';
+import type { ResolvedFurQuality } from './fur';
 import type { CatPose } from './pose';
 
 /** 머리 메시가 쓰는 레이어. 캣캠은 이 레이어를 렌더링하지 않아 머리에 시야가 가리지 않는다. */
@@ -20,4 +21,6 @@ export interface CatRig {
   apply(pose: CatPose, time: number): void;
   /** 작은 반응: 귀를 한 번 움찔한다 (먹는 중 이동 키를 눌렀을 때 등) */
   twitchEar(): void;
+  /** 털 표현 품질 */
+  setFurQuality(q: ResolvedFurQuality): void;
 }

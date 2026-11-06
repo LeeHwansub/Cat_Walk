@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { createRng } from '../core/rng';
 import { effectiveScale, girthScale, type CatAppearance } from './appearance';
+import { furLength, shellCount, type ResolvedFurQuality } from './fur';
+import { FurShells } from './furShells';
 import { solveTwoBone } from './ik';
 import type { CatPose } from './pose';
 import { HEAD_LAYER, type CatRig } from './rig';
@@ -31,6 +33,8 @@ const BACK = new THREE.Vector3(0, 0, -1);
 const STRIDE = 0.15;
 const STANCE = 0.62; // 한 주기 중 발이 땅에 닿아 있는 비율
 const TAIL_SEGMENTS = 9;
+/** 머리 털 길이 배율 (눈·주둥이·이마 무늬를 덮지 않게 짧게) */
+const HEAD_FUR = 0.35;
 const TAIL_SEG_LEN = 0.04;
 
 interface Leg {
@@ -88,6 +92,8 @@ export class ProceduralCatRig implements CatRig {
   private readonly tailTipMat = new THREE.MeshStandardMaterial({ roughness: 0.92 });
   /** 목걸이 + 하트 태그 */
   private readonly collar = new THREE.Group();
+  /** 털 겹 (shell fur) */
+  private readonly fur = new FurShells();
 
   private readonly furMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
   private readonly lightMat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
@@ -107,6 +113,11 @@ export class ProceduralCatRig implements CatRig {
 
   constructor(appearance: CatAppearance) {
     this.build();
+    // 털결 요철: 겹이 없는 품질(low)에서도 매끈한 플라스틱처럼 보이지 않게
+    for (const m of [this.furMat, this.lightMat, this.pawMat, this.tailTipMat]) {
+      m.bumpMap = this.fur.bump;
+      m.bumpScale = 0.8;
+    }
     this.setAppearance(appearance);
   }
 
@@ -180,6 +191,17 @@ export class ProceduralCatRig implements CatRig {
     this.tail[0].scale.setScalar(kitten ? 0.8 : 1);
     this.baseGirth = girthScale(a.build);
     this.applyGirth(this.baseGirth);
+
+    // 털: 아기는 더 길고 보송하게. 이마 M자 무늬는 머리 털 위로 띄운다
+    const len = furLength(a.stage);
+    this.fur.setLength(len);
+    this.fur.sync();
+    this.mMark.position.set(0, 0.033 + 0.565 * len * HEAD_FUR, 0.052 + 0.825 * len * HEAD_FUR); // 머리 털 끝 높이
+  }
+
+  /** 털 품질: 겹 수 (0이면 요철 텍스처만) */
+  setFurQuality(q: ResolvedFurQuality): void {
+    this.fur.setCount(shellCount(q));
   }
 
   apply(p: CatPose, time: number): void {
@@ -261,8 +283,9 @@ export class ProceduralCatRig implements CatRig {
     this.girthPart(this.collar, 'xz', 0.7);
   }
 
-  private girthPart(mesh: THREE.Object3D, axes: 'xy' | 'xz' | 'xyz', power: number, belly = false): void {
+  private girthPart<T extends THREE.Object3D>(mesh: T, axes: 'xy' | 'xz' | 'xyz', power: number, belly = false): T {
     this.girthParts.push({ mesh, base: mesh.scale.clone(), axes, power, belly: belly ? { baseY: mesh.position.y } : undefined });
+    return mesh;
   }
 
   /** 체형 적용: 몸통·배·목·허벅지·볼의 둘레만 바꾸고 길이는 그대로 둔다 */
@@ -302,18 +325,20 @@ export class ProceduralCatRig implements CatRig {
     this.hips.add(this.spine);
 
     // 몸통 (줄무늬가 몸을 감싸도록 축을 z 방향으로 눕힌다)
-    this.girthPart(add(this.hips, sphere(0.078), this.furMat, [0, 0.012, 0], [0.95, 0.95, 1.1]), 'xy', 1);
+    this.fur.add(this.girthPart(add(this.hips, sphere(0.078), this.furMat, [0, 0.012, 0], [0.95, 0.95, 1.1]), 'xy', 1));
     // 옆으로 눕힌 캡슐: 로컬 y가 길이, x·z가 둘레
-    this.girthPart(add(this.spine, new THREE.CapsuleGeometry(0.07, 0.2, 8, 18), this.furMat, [0, 0.008, 0.13], [0.93, 1, 1], Math.PI / 2), 'xz', 1);
+    this.fur.add(this.girthPart(add(this.spine, new THREE.CapsuleGeometry(0.07, 0.2, 8, 18), this.furMat, [0, 0.008, 0.13], [0.93, 1, 1], Math.PI / 2), 'xz', 1));
     this.chest.position.set(0, 0.008, 0.25);
     this.spine.add(this.chest);
-    this.girthPart(add(this.chest, sphere(0.08), this.furMat, [0, 0, 0], [0.92, 1, 1]), 'xy', 1);
+    this.fur.add(this.girthPart(add(this.chest, sphere(0.08), this.furMat, [0, 0, 0], [0.92, 1, 1]), 'xy', 1));
     // 앞가슴 털: 캣캠에서는 앞발을 가리므로 머리와 같은 레이어에 둔다
     const chestFur = add(this.chest, sphere(0.058), this.lightMat, [0, -0.028, 0.035], [1, 1.05, 0.9]);
     chestFur.layers.set(HEAD_LAYER);
     this.girthPart(chestFur, 'xy', 1);
+    this.fur.add(chestFur);
     const belly = add(this.spine, sphere(0.06), this.lightMat, [0, -0.04, 0.13], [0.9, 0.7, 1.9]); // 배
     this.girthPart(belly, 'xy', 1.4, true); // 통통하면 배가 더 처진다
+    this.fur.add(belly);
 
     // 목·머리
     this.neck.position.set(0, 0.045, 0.3);
@@ -322,6 +347,7 @@ export class ProceduralCatRig implements CatRig {
     this.girthPart(neckMesh, 'xz', 0.7);
     this.buildCollar();
     neckMesh.layers.set(HEAD_LAYER);
+    this.fur.add(neckMesh, 0.4); // 목걸이가 묻히지 않게 짧게
     // 캣캠: 어깨 위에서 가슴 쪽을 내려다보는 위치. 참조 영상처럼 지면, 가슴 털, 앞발이 보인다.
     // (몸통 안쪽 면은 뒷면 컬링으로 그려지지 않는다)
     this.eyeAnchor.position.set(0, 0.06, 0.3);
@@ -350,7 +376,7 @@ export class ProceduralCatRig implements CatRig {
       }
       const upperR = front ? 0.024 : 0.032;
       const lowerR = front ? 0.019 : 0.018;
-      this.girthPart(add(root, new THREE.CapsuleGeometry(upperR, UPPER - upperR, 4, 10), this.furMat, [0, -UPPER / 2, 0]), 'xz', 0.6);
+      this.fur.add(this.girthPart(add(root, new THREE.CapsuleGeometry(upperR, UPPER - upperR, 4, 10), this.furMat, [0, -UPPER / 2, 0]), 'xz', 0.6), 0.7);
       this.legBaseX.set(root, root.position.x);
       knee.position.y = -UPPER;
       root.add(knee);
@@ -368,6 +394,7 @@ export class ProceduralCatRig implements CatRig {
       const r = lerp(0.021, 0.013, i / (TAIL_SEGMENTS - 1));
       const m = add(seg, new THREE.CapsuleGeometry(r, TAIL_SEG_LEN * 0.9, 4, 10), this.furMat, [0, 0, -TAIL_SEG_LEN / 2], undefined, Math.PI / 2);
       if (i === TAIL_SEGMENTS - 1) this.tailTip = m;
+      this.fur.add(m);
       this.tail.push(seg);
       parent = seg;
     }
@@ -388,9 +415,10 @@ export class ProceduralCatRig implements CatRig {
       return [v.x, v.y, v.z];
     };
 
-    add(h, sphere(0.066, 24, 18), this.furMat, [0, 0, 0], [1, 0.88, 0.95]);
-    this.girthPart(add(h, sphere(0.042), this.furMat, [0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5); // 볼
-    this.girthPart(add(h, sphere(0.042), this.furMat, [-0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5);
+    // 머리·볼 털은 짧게 (눈과 주둥이를 덮지 않게)
+    this.fur.add(add(h, sphere(0.066, 24, 18), this.furMat, [0, 0, 0], [1, 0.88, 0.95]), HEAD_FUR);
+    this.fur.add(this.girthPart(add(h, sphere(0.042), this.furMat, [0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5), 0.4); // 볼
+    this.fur.add(this.girthPart(add(h, sphere(0.042), this.furMat, [-0.03, -0.022, 0.028], [1, 0.8, 0.9]), 'xyz', 0.5), 0.4);
     add(h, sphere(0.03), this.lightMat, [0, -0.03, 0.056], [1.3, 0.75, 0.85]); // 주둥이
     add(h, sphere(0.009, 10, 8), pink, [0, -0.014, 0.083], [1.4, 0.8, 0.6]); // 코
 

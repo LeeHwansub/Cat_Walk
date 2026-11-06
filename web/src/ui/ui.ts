@@ -1,3 +1,4 @@
+import { isFurQuality } from '../cat/fur';
 import { ACCESSORIES, BUILD_RANGE, clampBuild, clampSize, EAR_TYPES, EYE_COLORS, FUR_COLORS, PATTERNS, PRESETS, SIZE_RANGE, type CatAppearance, type GrowthStage } from '../cat/appearance';
 import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
@@ -123,15 +124,18 @@ export function bindUi(game: Game): void {
   const muteAll = $<HTMLInputElement>('set-mute-all');
   const muteCat = $<HTMLInputElement>('set-mute-cat');
   const shake = $<HTMLInputElement>('set-shake');
+  const fur = $<HTMLSelectElement>('set-fur');
   function openSettings() {
     const s = game.save.settings;
     muteAll.checked = s.muteAll;
     muteCat.checked = s.muteCat;
     shake.checked = s.reduceCamShake;
+    fur.value = s.furQuality;
     show(settings, true);
   }
-  const onChange = () => game.setSettings({ muteAll: muteAll.checked, muteCat: muteCat.checked, reduceCamShake: shake.checked });
-  muteAll.onchange = muteCat.onchange = shake.onchange = onChange;
+  const onChange = () =>
+    game.setSettings({ muteAll: muteAll.checked, muteCat: muteCat.checked, reduceCamShake: shake.checked, furQuality: isFurQuality(fur.value) ? fur.value : 'auto' });
+  muteAll.onchange = muteCat.onchange = shake.onchange = fur.onchange = onChange;
   $('btn-settings-close').onclick = () => show(settings, false);
   settings.onclick = (e) => {
     if (e.target === settings) show(settings, false);

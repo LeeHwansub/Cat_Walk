@@ -345,6 +345,20 @@ kbd {
   accent-color: var(--accent);
 }
 
+.select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.select select {
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
 .credits {
   margin: 16px 0 0;
   padding-top: 12px;

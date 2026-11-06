@@ -6,6 +6,7 @@ import { CameraRig, type CameraMode } from './camera/CameraRig';
 import { effectiveScale, girthScale, type CatAppearance } from './cat/appearance';
 import { CatAnimator, type AnimBehavior } from './cat/CatAnimator';
 import { CatController } from './cat/CatController';
+import { resolveFurQuality } from './cat/fur';
 import { gazeAngles, GazePicker, type GazePoint } from './cat/gaze';
 import { postureBlocksMovement } from './cat/posture';
 import { ProceduralCatRig } from './cat/ProceduralCatRig';
@@ -181,6 +182,8 @@ export class Game {
 
   setSettings(s: Settings): void {
     this.save.settings = { ...s };
+    const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    this.rig.setFurQuality(resolveFurQuality(s.furQuality, coarse));
     this.audio.setMute(s.muteAll, s.muteCat);
     this.persist();
   }

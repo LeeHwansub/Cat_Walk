@@ -1,3 +1,4 @@
+import { isFurQuality, type FurQuality } from '../cat/fur';
 import { clampBuild, clampSize, defaultAppearance, isAccessory, isEarType, isHexColor, isPattern, isStage, type CatAppearance } from '../cat/appearance';
 
 /** localStorage와 같은 모양의 저장소. 테스트에서 메모리 저장소로 바꿔 끼운다. */
@@ -12,6 +13,8 @@ export interface Settings {
   muteCat: boolean;
   /** 캣캠 흔들림 줄이기 */
   reduceCamShake: boolean;
+  /** 털 표현 품질 (auto: 기기에 맞춤) */
+  furQuality: FurQuality;
 }
 
 export interface SaveData {
@@ -26,7 +29,7 @@ export const SAVE_KEY = 'cat-walk/save';
 const VERSION = 1;
 
 export function defaultSettings(): Settings {
-  return { muteAll: false, muteCat: false, reduceCamShake: true };
+  return { muteAll: false, muteCat: false, reduceCamShake: true, furQuality: 'auto' };
 }
 
 export function defaultSave(): SaveData {
@@ -59,6 +62,7 @@ function sanitize(raw: unknown): SaveData | null {
       muteAll: typeof settings.muteAll === 'boolean' ? settings.muteAll : def.settings.muteAll,
       muteCat: typeof settings.muteCat === 'boolean' ? settings.muteCat : def.settings.muteCat,
       reduceCamShake: typeof settings.reduceCamShake === 'boolean' ? settings.reduceCamShake : def.settings.reduceCamShake,
+      furQuality: isFurQuality(settings.furQuality) ? settings.furQuality : def.settings.furQuality,
     },
     hunger: finite(raw.hunger) ? Math.min(100, Math.max(0, raw.hunger)) : def.hunger,
     position: pos,
