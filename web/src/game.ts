@@ -5,7 +5,7 @@ import type { BehaviorId, InterestKind } from './behavior/types';
 import { CameraRig, type CameraMode } from './camera/CameraRig';
 import { effectiveScale, girthScale, type CatAppearance } from './cat/appearance';
 import { CatAnimator, type AnimBehavior } from './cat/CatAnimator';
-import { CatController } from './cat/CatController';
+import { CatController, RUN_SPEED, WALK_SPEED } from './cat/CatController';
 import { resolveFurQuality } from './cat/fur';
 import { gazeAngles, GazePicker, type GazePoint } from './cat/gaze';
 import { postureBlocksMovement } from './cat/posture';
@@ -89,13 +89,13 @@ export class Game {
   private resetting = false;
 
   /** catModel: 불러온 glb 고양이(없으면 이전 도형 모델) */
-  constructor(private readonly container: HTMLElement, catModel: THREE.Object3D | null = null) {
+  constructor(private readonly container: HTMLElement, catModel: THREE.Object3D | null = null, runMotion: THREE.Object3D | null = null) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
     this.map = buildNeighborhood();
     this.stage.scene.add(this.map.group);
 
-    this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel) : new ProceduralCatRig(this.save.cat);
+    this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel, runMotion) : new ProceduralCatRig(this.save.cat);
     this.stage.scene.add(this.rig.root);
     this.ctrl = new CatController(this.map.collision, this.rig.cycleLength, effectiveScale(this.save.cat.stage, this.save.cat.size));
     this.ctrl.girth = girthScale(this.save.cat.build);
@@ -292,6 +292,7 @@ export class Game {
       },
       dt,
     );
+    if (this.rig.cycleLengthAt) this.ctrl.cycleLength = this.rig.cycleLengthAt(pose.run);
     this.rig.root.position.set(this.ctrl.x, this.floatHeight, this.ctrl.z);
     this.rig.root.rotation.y = this.ctrl.heading;
     this.rig.setFirstPerson?.(this.cam.mode === 'cat');
@@ -339,6 +340,7 @@ export class Game {
       this.updateEating(dt, now);
     } else if (this.mode === 'manual') {
       this.startEatingIfAtBowl();
+      this.ctrl.running = this.input.running() && this.balloon.amount < 0.05;
       if (hasInput && !this.readyToMove(dt)) {
         // 앉아 있거나 엎드려 있으면 일어선 뒤에 걷는다
       } else if (this.cam.mode === 'cat') {
@@ -483,7 +485,10 @@ export class Game {
     }
     if (e.seq.phase === 'approach') {
       if (!this.readyToMove(dt)) return;
-      const reached = this.ctrl.walkTo(e.bowl.x, e.bowl.z, dt, this.eatReach());
+      // 배가 고프고 그릇이 멀면 달려간다 (가까워지면 걷기로)
+      const far = Math.hypot(e.bowl.x - this.ctrl.x, e.bowl.z - this.ctrl.z) > 2.5;
+      const dash = far && this.save.hunger < 40 && this.mode === 'auto';
+      const reached = this.ctrl.walkTo(e.bowl.x, e.bowl.z, dt, this.eatReach(), dash ? RUN_SPEED : WALK_SPEED);
       if (reached) e.seq.arrive();
       else if (this.isStuck(now)) this.cancelEating();
       return;

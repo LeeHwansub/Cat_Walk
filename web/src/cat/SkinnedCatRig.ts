@@ -6,6 +6,7 @@ import { MAX_SHELLS } from './furShells';
 import { setWorldQuaternion, solveTwoBoneIK } from './ik3d';
 import type { CatPose } from './pose';
 import { HEAD_LAYER, type CatRig } from './rig';
+import { ClipRetarget, RUN_BONE_MAP } from './runRetarget';
 
 /**
  * 뼈대가 있는 glb 고양이 모델 (사용자 제공 캐릭터.glb = Sketchfab "Toon Cat FREE", CC BY 4.0).
@@ -132,10 +133,37 @@ export class SkinnedCatRig implements CatRig {
   private readonly euler = new THREE.Euler();
 
   get cycleLength(): number {
+    // 측정값보다 10% 길게: 발이 아주 조금 미끄러지는 대신 다리가 덜 바쁘게 움직인다
+    if (this.walk) return this.walk.cycle * 1.1 * this.legScale;
     return (STRIDE * this.legScale) / STANCE;
   }
 
-  constructor(appearance: CatAppearance, gltfScene: THREE.Object3D) {
+  /** 달리기 비율에 따른 한 주기 거리 (걷기 ↔ 달리기 사이는 보간) */
+  cycleLengthAt(run: number): number {
+    if (!this.run || run <= 0) return this.cycleLength;
+    return lerp(this.cycleLength, this.run.cycle * this.legScale, Math.min(1, run));
+  }
+
+  /** 달리기: 다른 뼈대(Run.blend)의 동작을 옮겨 쓴다. 대상 뼈는 계층 순서 */
+  private run: { retarget: ClipRetarget; cycle: number; lift: number; heightK: number; targets: { bone: THREE.Bone; name: string }[] } | null = null;
+  private readonly runDelta = new Map<string, THREE.Quaternion>();
+  private readonly runLocal = new Map<THREE.Bone, THREE.Quaternion>();
+  private readonly runModelQ = new Map<THREE.Bone, THREE.Quaternion>();
+
+  /**
+   * 동작 클립 (glb 안의 걷기 클립 등). 걸음 위상에 맞춰 시간을 정하고, 다리·몸통 뼈만 가져와
+   * 코드로 만든 자세에 섞는다. cycle: 한 주기 동안 몸이 나아가는 거리(성체 m, 클립에서 측정)
+   */
+  private readonly mixer: THREE.AnimationMixer;
+  private walk: { action: THREE.AnimationAction; cycle: number; lift: number } | null = null;
+  /** 클립에서 가져올 뼈 (다리 전부 + 몸통·척추) */
+  private clipBones: THREE.Bone[] = [];
+  private readonly clipQ: THREE.Quaternion[] = [];
+  private readonly clipP: THREE.Vector3[] = [];
+  /** 클립의 몸통 회전을 지금 계층으로 옮기는 보정 (원래 부모 방향 ↔ 바꾼 부모 방향) */
+  private torsoClipFix = new THREE.Quaternion();
+
+  constructor(appearance: CatAppearance, gltfScene: THREE.Object3D, runScene: THREE.Object3D | null = null) {
     let mesh: THREE.SkinnedMesh | null = null;
     gltfScene.traverse((o) => {
       if (!mesh && (o as THREE.SkinnedMesh).isSkinnedMesh) mesh = o as THREE.SkinnedMesh;
@@ -148,6 +176,10 @@ export class SkinnedCatRig implements CatRig {
     // 뼈와 메시를 원래 계층(축 변환·100배 확대가 섞여 있음)에서 꺼내 모델 그룹 아래에 둔다.
     // 바인드 행렬을 단위 행렬로 두면 정점 = 뼈 월드 × 역바인드 × 정점(모델 단위)이 된다.
     const rootBone = this.bones.find((b) => !(b.parent as THREE.Bone | null)?.isBone)!;
+    // 클립은 원래 계층 기준 로컬 값이라, 몸통의 부모(root_01)가 원래 계층에서 향하던 방향을 기억해 둔다
+    gltfScene.updateMatrixWorld(true);
+    const torsoParent = this.bones.find((b) => norm(b.name) === norm(BONES.torso))!.parent!;
+    const origParentQ = torsoParent.getWorldQuaternion(new THREE.Quaternion());
     this.model.scale.setScalar(MODEL_SCALE);
     this.root.add(this.model);
     this.model.add(rootBone);
@@ -159,6 +191,7 @@ export class SkinnedCatRig implements CatRig {
     this.mesh.bind(skeleton, new THREE.Matrix4());
     skeleton.pose();
     this.root.updateMatrixWorld(true);
+    this.torsoClipFix = torsoParent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(origParentQ);
     this.mesh.frustumCulled = false; // 자세가 바뀌면 기준 자세 경계구가 맞지 않는다
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
@@ -216,6 +249,45 @@ export class SkinnedCatRig implements CatRig {
     }
 
     this.collectProbes();
+    this.mixer = new THREE.AnimationMixer(this.model);
+    this.clipBones = [...this.legs.flatMap((l) => l.bones), this.torso, this.spine1, this.spine2];
+    for (let i = 0; i < this.clipBones.length; i++) {
+      this.clipQ.push(new THREE.Quaternion());
+      this.clipP.push(new THREE.Vector3());
+    }
+    const walkClip = gltfScene.animations[0];
+    if (walkClip) this.walk = { action: this.mixer.clipAction(walkClip), cycle: 0, lift: 0 };
+    if (this.walk) {
+      const walk = this.walk;
+      walk.action.play();
+      Object.assign(
+        walk,
+        this.measureFeet((t) => {
+          walk.action.time = t * walk.action.getClip().duration;
+          this.mixer.update(0);
+          this.torso.quaternion.premultiply(this.torsoClipFix);
+        }, 0.6),
+      );
+    }
+    const runClip = runScene?.animations[0];
+    if (runScene && runClip) {
+      const retarget = new ClipRetarget(runScene, runClip);
+      const set = new Set(RUN_BONE_MAP.map(([, t]) => norm(t)));
+      const targets = this.bones.filter((b) => set.has(norm(b.name))).map((b) => ({ bone: b, name: RUN_BONE_MAP.find(([, t]) => norm(t) === norm(b.name))![1] }));
+      // 원본 골반 높이 대비 이 모델 엉덩이 높이 (몸이 위아래로 튀는 양을 맞춘다)
+      const heightK = this.hipRestY / Math.max(0.05, retarget.pelvisRestY);
+      const run = { retarget, cycle: 0, lift: 0, heightK, targets };
+      this.run = run;
+      Object.assign(
+        run,
+        this.measureFeet((t) => {
+          const dy = this.computeRun(t);
+          for (const { bone } of run.targets) bone.quaternion.copy(this.runLocal.get(bone)!);
+          this.model.position.y = dy * heightK;
+        }, 1.6),
+      );
+      this.model.position.y = 0;
+    }
     this.buildCollar();
     // 캣캠: 원래 얼굴 앞(머리는 캣캠 중 숨김). 이 모델은 가슴이 앞발보다 앞으로 나와 있어
     // 어깨 위에 두면 가슴만 보이므로 얼굴 위치에 둔다 (앞발은 보이지 않는다)
@@ -304,10 +376,160 @@ export class SkinnedCatRig implements CatRig {
     this.model.position.set(0, lerp(standY, groundY, settle), 0);
     this.root.updateMatrixWorld(true);
     this.updateTail(p, time, spinePitch);
+    this.saveCodePose();
     for (const leg of this.legs) this.solveLeg(leg, p, rollA);
+
+    // 걷기: glb 걷기 클립의 다리·몸통 동작을 걸음 위상에 맞춰 섞는다 (서 있을 때만)
+    const moving = THREE.MathUtils.smoothstep(p.speed, 0.05, 0.35) * (1 - settle) * (1 - p.float) * (1 - p.stretch);
+    const runW = this.run ? moving * p.run : 0;
+    if (this.walk) {
+      const w = moving * (1 - runW);
+      if (w > 0.001) {
+        // 클립 속 몸은 기준 자세보다 높이 서 있어 그만큼 올린다 (다리 길이 배율 반영)
+        this.model.position.y += this.walk.lift * this.legScale * w;
+        this.blendClip(this.walk.action, (((p.gaitPhase % 1) + 1) % 1), w);
+      }
+    }
+    // 달리기: 옮겨 온 달리기 동작을 섞는다 (다리·몸통·꼬리)
+    if (this.run && runW > 0.001) {
+      const dy = this.computeRun((((p.gaitPhase % 1) + 1) % 1));
+      this.model.position.y += (this.run.lift * this.legScale + dy * this.run.heightK) * runW;
+      for (const { bone } of this.run.targets) bone.quaternion.slerp(this.runLocal.get(bone)!, runW);
+      this.root.updateMatrixWorld(true);
+      // 원본은 공중에 뜨는 구간이 길어, 가장 낮은 발이 땅에서 뜬 높이의 75%만큼 몸을 내린다 (땅에 묻히면 올림)
+      let minY = Infinity;
+      for (const leg of this.legs) minY = Math.min(minY, this.root.worldToLocal(leg.bones[leg.bones.length - 1].getWorldPosition(this.v2)).y);
+      const gap = minY - this.legs[0].pawY * this.legScale;
+      this.model.position.y -= (gap > 0 ? gap * 0.75 : gap) * runW;
+      this.root.updateMatrixWorld(true);
+    }
   }
 
   // ---------------------------------------------------------------- 구성
+
+  /** 클립의 phase(0~1) 시점 자세를 클립 뼈에 w만큼 섞는다. 다른 뼈는 지금 자세 그대로 */
+  private blendClip(action: THREE.AnimationAction, phase: number, w: number): void {
+    const bones = this.clipBones;
+    // 지금(코드) 자세를 보관하고 클립을 적용한 뒤, 둘을 섞는다
+    const keepQ = bones.map((b) => b.quaternion.clone());
+    const keepP = bones.map((b) => b.position.clone());
+    const keepS = bones.map((b) => b.scale.clone());
+    action.time = phase * action.getClip().duration;
+    this.mixer.update(0);
+    this.torso.quaternion.premultiply(this.torsoClipFix);
+    for (let i = 0; i < bones.length; i++) {
+      this.clipQ[i].copy(bones[i].quaternion);
+      this.clipP[i].copy(bones[i].position);
+    }
+    // 클립이 건드린 다른 뼈(머리·꼬리·귀 등)는 코드 자세로 되돌리기 위해 전체를 다시 계산하지 않고
+    // 클립 뼈만 섞는다. 나머지 뼈는 아래에서 보관값으로 복원한다
+    for (const b of this.bones) {
+      const idx = bones.indexOf(b);
+      if (idx >= 0) {
+        b.quaternion.copy(keepQ[idx]).slerp(this.clipQ[idx], w);
+        b.position.copy(keepP[idx]).lerp(this.clipP[idx], w);
+        b.scale.copy(keepS[idx]);
+      }
+    }
+    this.restoreNonClip();
+    this.root.updateMatrixWorld(true);
+  }
+
+  /** 클립이 덮어쓴 다리·몸통 밖의 뼈를 이번 프레임 코드 자세로 되돌린다 */
+  private readonly codePose = new Map<THREE.Bone, { q: THREE.Quaternion; p: THREE.Vector3; s: THREE.Vector3 }>();
+  private saveCodePose(): void {
+    for (const b of this.bones) {
+      if (this.clipBones.includes(b)) continue;
+      let e = this.codePose.get(b);
+      if (!e) {
+        e = { q: new THREE.Quaternion(), p: new THREE.Vector3(), s: new THREE.Vector3() };
+        this.codePose.set(b, e);
+      }
+      e.q.copy(b.quaternion);
+      e.p.copy(b.position);
+      e.s.copy(b.scale);
+    }
+  }
+  private restoreNonClip(): void {
+    for (const [b, e] of this.codePose) {
+      b.quaternion.copy(e.q);
+      b.position.copy(e.p);
+      b.scale.copy(e.s);
+    }
+  }
+
+  /**
+   * 클립 한 주기 동안 몸이 나아가는 거리 (성체 m). 제자리 걷기 클립이라, 발이 땅에 닿아 있는 동안
+   * 발이 뒤로 밀리는 거리 ÷ 땅에 닿아 있는 비율로 구한다. 네 발의 평균.
+   */
+  /**
+   * phase 시점의 달리기 자세를 대상 뼈의 로컬 회전으로 계산해 runLocal에 담는다 (뼈는 건드리지 않음).
+   * 반환: 원본 골반 높이 변화 (원본 m)
+   */
+  private computeRun(phase: number): number {
+    const run = this.run!;
+    const dy = run.retarget.sample(phase, this.runDelta);
+    const rootQInv = this.root.getWorldQuaternion(this.q1).invert().clone();
+    for (const { bone, name } of run.targets) {
+      let want = this.runModelQ.get(bone);
+      if (!want) {
+        want = new THREE.Quaternion();
+        this.runModelQ.set(bone, want);
+      }
+      want.copy(this.runDelta.get(name)!).multiply(this.rest.get(bone)!.modelQ);
+      const parent = bone.parent as THREE.Bone;
+      const parentQ = this.runModelQ.has(parent) && run.targets.some((t) => t.bone === parent)
+        ? this.runModelQ.get(parent)!.clone()
+        : parent.getWorldQuaternion(new THREE.Quaternion()).premultiply(rootQInv);
+      let local = this.runLocal.get(bone);
+      if (!local) {
+        local = new THREE.Quaternion();
+        this.runLocal.set(bone, local);
+      }
+      local.copy(parentQ.invert().multiply(want));
+    }
+    return dy;
+  }
+
+  /**
+   * 동작의 한 주기 동안 몸이 나아가는 거리(성체 m)와, 발이 기준 높이에 닿도록 몸을 올릴 양.
+   * 제자리 동작이라, 발이 땅에 닿아 있는 동안 뒤로 밀리는 거리 ÷ 닿아 있는 비율로 구한다. 네 발 평균.
+   */
+  private measureFeet(pose: (phase: number) => void, maxCycle: number): { cycle: number; lift: number } {
+    const N = 60;
+    const feet = this.legs.map((l) => l.bones[l.bones.length - 1]);
+    const ys: number[][] = feet.map(() => []);
+    const zs: number[][] = feet.map(() => []);
+    const v = new THREE.Vector3();
+    for (let i = 0; i < N; i++) {
+      this.resetPose();
+      pose(i / N);
+      this.root.updateMatrixWorld(true);
+      feet.forEach((f, k) => {
+        this.root.worldToLocal(f.getWorldPosition(v));
+        ys[k].push(v.y);
+        zs[k].push(v.z);
+      });
+    }
+    let sum = 0;
+    let n = 0;
+    let minAll = 0;
+    for (let k = 0; k < feet.length; k++) {
+      const minY = Math.min(...ys[k]);
+      minAll += minY / feet.length;
+      const stance = ys[k].map((y, i) => (y < minY + 0.006 ? zs[k][i] : NaN)).filter((z) => !Number.isNaN(z));
+      if (stance.length < 3) continue;
+      const travel = Math.max(...stance) - Math.min(...stance);
+      sum += travel / (stance.length / N);
+      n++;
+    }
+    this.resetPose();
+    this.model.position.y = 0;
+    this.root.updateMatrixWorld(true);
+    const cycle = n ? sum / n : STRIDE / STANCE;
+    // 발이 땅에 닿을 때 기준 자세의 발 높이가 되도록 몸을 올리는 양
+    return { cycle: THREE.MathUtils.clamp(cycle, 0.12, maxCycle), lift: this.legs[0].pawY - minAll };
+  }
 
   private resetPose(): void {
     for (const b of this.bones) {

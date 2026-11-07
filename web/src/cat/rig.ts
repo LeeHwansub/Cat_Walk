@@ -17,6 +17,8 @@ export interface CatRig {
   readonly eyeAnchor: THREE.Object3D;
   /** 걷기 한 주기 동안 몸이 나아가는 거리 (m). 발 미끄러짐 방지용 */
   readonly cycleLength: number;
+  /** 달리기 비율(0~1)에 따른 한 주기 거리. 없으면 cycleLength */
+  cycleLengthAt?(run: number): number;
   setAppearance(appearance: CatAppearance): void;
   apply(pose: CatPose, time: number): void;
   /** 작은 반응: 귀를 한 번 움찔한다 (먹는 중 이동 키를 눌렀을 때 등) */

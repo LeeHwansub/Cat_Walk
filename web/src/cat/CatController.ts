@@ -1,7 +1,22 @@
 import { resolveCircle, type CollisionWorld } from '../world/collision';
 
-export const WALK_SPEED = 0.55;
-const MANUAL_SPEED = 0.85;
+// 걷기 속도 (m/s, 성체 기준). glb 모델의 걷기 클립 보폭에 맞춰 다리가 너무 빨리 움직이지 않게 낮춤 (2026-11-07 사용자 요청)
+export const WALK_SPEED = 0.45;
+const MANUAL_SPEED = 0.62;
+/** 달리기 속도 (m/s, 성체 기준). 직접 조작 Shift, 자율은 배고플 때 그릇으로 (2026-11-07 사용자 요청) */
+export const RUN_SPEED = 1.4;
+
+/**
+ * 달리기 동작 비율 0(걷기) ~ 1(달리기). speedScale로 나눈 성체 기준 속도로 판단해
+ * 작은 고양이도 같은 상대 속도면 같은 동작을 한다.
+ */
+export function runWeight(speed: number, speedScale = 1): number {
+  const v = speed / Math.max(1e-6, speedScale);
+  // 직접 조작 걷기 속도(MANUAL_SPEED)까지는 걷기 동작만, 그보다 빠르면 달리기를 섞는다
+  const from = MANUAL_SPEED * 1.1;
+  const t = (v - from) / (RUN_SPEED * 0.9 - from);
+  return Math.min(1, Math.max(0, t));
+}
 const ACCEL = 1.6;
 const TURN_RATE = 3.2;
 const RADIUS = 0.16;
@@ -31,6 +46,8 @@ export class CatController {
   girth = 1;
   /** 속도 추가 배율 (풍선으로 떠 있을 때 느리게) */
   speedMul = 1;
+  /** 직접 조작에서 달리기 (Shift) */
+  running = false;
 
   /**
    * 속도 배율. 보폭은 크기에 비례하지만 속도는 덜 줄여서(크기^0.6)
@@ -68,7 +85,8 @@ export class CatController {
     }
     const diff = wrapAngle(Math.atan2(dirX, dirZ) - this.heading);
     this.turn(diff, dt, 1.6);
-    this.accelerate(MANUAL_SPEED * this.speedScale * (Math.abs(diff) > 1.2 ? 0.35 : 1), dt);
+    const top = this.running ? RUN_SPEED : MANUAL_SPEED;
+    this.accelerate(top * this.speedScale * (Math.abs(diff) > 1.2 ? 0.35 : 1), dt);
     this.advance(dt);
   }
 
@@ -76,7 +94,7 @@ export class CatController {
   moveTank(turnInput: number, forwardInput: number, dt: number): void {
     this.turnRate = -turnInput * TURN_RATE * 0.6;
     this.heading = wrapAngle(this.heading + this.turnRate * dt);
-    if (forwardInput > 0.01) this.accelerate(MANUAL_SPEED * this.speedScale * 0.8, dt);
+    if (forwardInput > 0.01) this.accelerate((this.running ? RUN_SPEED : MANUAL_SPEED) * this.speedScale * 0.8, dt);
     else this.brake(dt);
     this.advance(dt);
   }

@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import { loadCatModel } from './cat/catModel';
+import { loadCatModel, loadRunMotion } from './cat/catModel';
 import { Game } from './game';
 import { bindUi } from './ui/ui';
 
@@ -9,14 +9,15 @@ async function boot(): Promise<void> {
   // 고양이 모델(glb)을 먼저 불러온다. 실패하면 이전 도형 모델로 시작한다.
   // 개발 중 비교용: 주소 뒤에 ?rig=procedural 을 붙이면 도형 모델을 쓴다.
   let catModel: THREE.Object3D | null = null;
+  let runMotion: THREE.Object3D | null = null;
   if (new URLSearchParams(location.search).get('rig') !== 'procedural') {
     try {
-      catModel = await loadCatModel();
+      [catModel, runMotion] = await Promise.all([loadCatModel(), loadRunMotion()]);
     } catch (err) {
       console.error('고양이 모델을 불러오지 못해 도형 모델로 시작합니다', err);
     }
   }
-  const game = new Game(container, catModel);
+  const game = new Game(container, catModel, runMotion);
   bindUi(game);
   game.start();
   // 개발 서버에서만 브라우저 점검용으로 노출한다 (프로덕션 빌드에서는 제거됨)

@@ -22,6 +22,11 @@ export class Input {
     return { x, z };
   }
 
+  /** 달리기 (Shift를 누르고 있는 동안) */
+  running(): boolean {
+    return this.has('ShiftLeft', 'ShiftRight');
+  }
+
   /** 지난 호출 이후 눌린 단발 키 */
   takePressed(): string[] {
     return this.pressed.splice(0);

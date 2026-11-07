@@ -1,4 +1,5 @@
 import type { BehaviorId } from '../behavior/types';
+import { runWeight, WALK_SPEED } from './CatController';
 import type { GazeAngles } from './gaze';
 import { neutralPose, type CatPose } from './pose';
 
@@ -43,7 +44,6 @@ const MAX_EYE_PITCH = 0.2;
 /** 일어서기 속도. 앉은 자세(1)에서 이동 가능 기준(0.12)까지 약 0.35초 */
 const STAND_UP_RATE = 6;
 
-const WALK_SPEED = 0.55;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smooth = (a: number, b: number, t: number) => {
   const x = clamp01((t - a) / (b - a));
@@ -64,6 +64,8 @@ export class CatAnimator {
     const k = (rate: number) => 1 - Math.exp(-rate * dt);
     p.gaitPhase = input.gaitPhase;
     p.speed += (t.speed - p.speed) * k(8);
+    // 달리기 비율: 속도에서 바로 정한다 (앉기·눕기 중에는 움직이지 않으므로 0)
+    p.run += (runWeight(input.speed) - p.run) * k(6);
     p.sit += (t.sit - p.sit) * k(input.standingUp ? STAND_UP_RATE : 3);
     p.lie += (t.lie - p.lie) * k(input.standingUp ? STAND_UP_RATE : 1.8);
     p.headYaw += (t.headYaw - p.headYaw) * k(4);
