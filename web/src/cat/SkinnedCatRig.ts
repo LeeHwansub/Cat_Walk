@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { effectiveScale, girthScale, type CatAppearance } from './appearance';
-import { applyAppearanceToUniforms, createCatSkinMaterial, createCatSkinUniforms, inflateFor, type CatSkinUniforms } from './catSkin';
+import { applyAppearanceToUniforms, createCatSkinMaterial, createCatSkinUniforms, bodyNearCut, inflateFor, type CatSkinUniforms } from './catSkin';
 import { furLength, shellCount, type ResolvedFurQuality } from './fur';
 import { MAX_SHELLS } from './furShells';
 import { setWorldQuaternion, solveTwoBoneIK } from './ik3d';
@@ -117,6 +117,7 @@ export class SkinnedCatRig implements CatRig {
   private readonly m4 = new THREE.Matrix4();
   private readonly rootInv = new THREE.Matrix4();
   private readonly collar = new THREE.Group();
+  private hasCollar = false;
   /** 목걸이 위치: 가슴(척추 2)과 머리 뼈 기준 오프셋. 매 프레임 둘 사이(머리 쪽 60%)에 둔다 */
   private readonly collarFromSpine = new THREE.Matrix4();
   private readonly collarFromHead = new THREE.Matrix4();
@@ -301,9 +302,10 @@ export class SkinnedCatRig implements CatRig {
     }
     this.groom = this.makeMotion(motions.groom, GROOM_BONE_MAP, 'j_body_00_12');
     this.buildCollar();
-    // 캣캠: 원래 얼굴 앞(머리는 캣캠 중 숨김). 이 모델은 가슴이 앞발보다 앞으로 나와 있어
-    // 어깨 위에 두면 가슴만 보이므로 얼굴 위치에 둔다 (앞발은 보이지 않는다)
-    this.attachToBone(this.eyeAnchor, this.spine2, new THREE.Vector3(0, 2.6, 1.55));
+    // 캣캠: 눈 위치(머리는 캣캠 중 숨김). 가슴 뼈에 두면 달릴 때 어깨가 솟고 머리가 앞으로 나가
+    // 카메라가 어깨 뒤에 갇혀 화면 아래를 가렸다 (2026-11-07). 목 뼈에 붙여 머리를 따라가게 한다
+    // (머리 뼈는 1인칭에서 크기를 줄이므로 쓰지 않는다)
+    this.attachToBone(this.eyeAnchor, this.neck, new THREE.Vector3(0, 2.8, 1.9));
     this.setAppearance(appearance);
   }
 
@@ -317,7 +319,8 @@ export class SkinnedCatRig implements CatRig {
     this.eyeScale = kitten ? 1.12 : 1;
     this.legScale = (kitten ? 0.86 : 1) * (this.fold ? 0.94 : 1);
     this.tailScale = kitten ? 0.8 : 1;
-    this.collar.visible = a.accessory === 'heartTag';
+    this.hasCollar = a.accessory === 'heartTag';
+    this.collar.visible = this.hasCollar && this.uniforms.uFade.value > 0.5;
     this.baseGirth = girthScale(a.build);
     this.setGirth(this.baseGirth);
     // 털 길이: 아기는 더 길고 보송하게 (도형 모델과 같은 값)
@@ -336,6 +339,12 @@ export class SkinnedCatRig implements CatRig {
   /** 캣캠: 머리가 시야를 가리지 않게 머리를 숨긴다 (한 덩어리 메시라 레이어로 나눌 수 없다) */
   setFirstPerson(on: boolean): void {
     this.firstPerson = on;
+  }
+
+  /** 3인칭 카메라가 바짝 붙었을 때 몸 전체를 흐리게 (1 = 다 보임) */
+  setBodyFade(fade: number): void {
+    this.uniforms.uFade.value = fade;
+    this.collar.visible = this.hasCollar && fade > 0.5;
   }
 
   twitchEar(): void {
@@ -376,6 +385,8 @@ export class SkinnedCatRig implements CatRig {
     this.setRel(this.head, this.q1.setFromEuler(this.euler.set(p.headPitch - spinePitch - neckPitch, p.headYaw, p.headTilt - rollA * (0.5 + 0.18 * Math.max(0, p.roll * 2 - 1)), 'YXZ')));
     this.head.scale.multiply(this.headScale);
     if (this.firstPerson) this.head.scale.setScalar(1e-4);
+    // 1인칭: 카메라 바로 앞 몸 표면은 숨긴다 (달릴 때 시야를 가리던 목·어깨)
+    this.uniforms.uNearCut.value = bodyNearCut(this.firstPerson, this.root.getWorldScale(this.v2).x);
     this.setRel(this.mouth, this.q1.setFromEuler(this.euler.set(Math.max(0, Math.sin(time * 18)) * 0.25 * p.lick, 0, 0)));
 
     this.updateEyes(p, time);

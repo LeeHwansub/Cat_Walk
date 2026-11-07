@@ -306,6 +306,7 @@ export class Game {
     this.rig.root.position.set(this.ctrl.x, this.floatHeight, this.ctrl.z);
     this.rig.root.rotation.y = this.ctrl.heading;
     this.rig.setFirstPerson?.(this.cam.mode === 'cat');
+    this.rig.setBodyFade?.(this.cam.bodyFade);
     this.rig.apply(pose, now);
 
     this.cam.update(dt, now, { x: this.ctrl.x, y: this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);

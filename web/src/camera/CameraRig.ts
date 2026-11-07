@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HEAD_LAYER } from '../cat/rig';
+import { bodyFade, clearDistance, nextDistance } from './collision';
 
 export type CameraMode = 'follow' | 'cat';
 
@@ -31,6 +32,11 @@ export class CameraRig {
   private readonly tmpB = new THREE.Vector3();
   private readonly smoothPos = new THREE.Vector3();
   private readonly smoothQuat = new THREE.Quaternion();
+  /** 3인칭: 부드럽게 따라가는 바라보는 점, 벽을 고려한 지금 거리 */
+  private readonly smoothTarget = new THREE.Vector3();
+  private camDist = 0;
+  /** 고양이를 얼마나 보이게 할지 (1 = 다 보임). 3인칭 카메라가 바짝 붙으면 줄어든다 */
+  bodyFade = 1;
   private initialized = false;
   /** 메뉴·생성 화면에서 자동 회전 */
   orbit = 0;
@@ -111,8 +117,10 @@ export class CameraRig {
     occluders: THREE.Object3D[],
     reduceShake: boolean,
   ): void {
-    if (this.mode === 'cat') this.updateCatCam(dt, eyeAnchor, reduceShake);
-    else this.updateFollow(dt, now, cat, occluders);
+    if (this.mode === 'cat') {
+      this.bodyFade = 1;
+      this.updateCatCam(dt, eyeAnchor, reduceShake);
+    } else this.updateFollow(dt, now, cat, occluders);
   }
 
   private updateFollow(dt: number, now: number, cat: { x: number; y?: number; z: number; heading: number; speed: number; scale: number }, occluders: THREE.Object3D[]): void {
@@ -127,23 +135,23 @@ export class CameraRig {
     const target = this.tmpA.set(cat.x, EYE_HEIGHT * cat.scale + (cat.y ?? 0), cat.z);
     const dir = this.tmpB.set(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
 
-    // 카메라가 벽이나 차를 뚫고 안으로 들어가지 않게 한다
     // 카메라 거리·높이는 고양이 크기를 따른다 (작은 고양이는 더 가깝고 낮게)
-    let dist = this.distance * Math.pow(cat.scale, 0.8);
-    this.raycaster.set(target, dir);
-    this.raycaster.far = dist;
-    const hit = this.raycaster.intersectObjects(occluders, true)[0];
-    if (hit) dist = Math.max(0.35, hit.distance - 0.2);
-
-    const desired = target.clone().addScaledVector(dir, dist);
-    desired.y = Math.max(0.08, desired.y);
+    const want = this.distance * Math.pow(cat.scale, 0.8);
+    // 고양이 움직임은 바라보는 점에서 부드럽게 따라간다 (카메라 위치는 이 점 + 방향 × 거리)
     if (!this.initialized) {
-      this.follow.position.copy(desired);
+      this.smoothTarget.copy(target);
+      this.camDist = want;
       this.initialized = true;
     } else {
-      this.follow.position.lerp(desired, 1 - Math.exp(-10 * dt));
+      this.smoothTarget.lerp(target, 1 - Math.exp(-10 * dt));
     }
-    this.follow.lookAt(target);
+    // 벽·차를 뚫지 않게: 굵게(다섯 줄) 검사해 막히면 그 프레임에 바로 당기고, 풀리면 천천히 돌아간다 (D-43)
+    const allowed = clearDistance(this.raycaster, this.smoothTarget, dir, want, occluders, cat.scale);
+    this.camDist = nextDistance(this.camDist, allowed, dt);
+    this.bodyFade = bodyFade(this.camDist, cat.scale);
+    this.follow.position.copy(this.smoothTarget).addScaledVector(dir, this.camDist);
+    this.follow.position.y = Math.max(0.08, this.follow.position.y);
+    this.follow.lookAt(this.smoothTarget);
   }
 
   private updateCatCam(dt: number, eye: THREE.Object3D, reduceShake: boolean): void {

@@ -27,4 +27,6 @@ export interface CatRig {
   setFurQuality(q: ResolvedFurQuality): void;
   /** 캣캠(1인칭) 중인지. 머리가 시야를 가리는 모델은 이때 머리를 숨긴다 */
   setFirstPerson?(on: boolean): void;
+  /** 3인칭 카메라가 바짝 붙었을 때 몸 전체를 흐리게 (1 = 다 보임) */
+  setBodyFade?(fade: number): void;
 }

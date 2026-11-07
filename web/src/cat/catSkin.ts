@@ -25,6 +25,10 @@ export interface CatSkinUniforms {
   uPad: { value: THREE.Color };
   /** 패드 얼룩 색 (삼색 고양이는 분홍·검정이 섞인 패드) */
   uPadDark: { value: THREE.Color };
+  /** 1인칭: 카메라에서 이 거리(m)보다 가까운 몸 표면은 그리지 않는다 (bodyNearCut). 0이면 끔 */
+  uNearCut: { value: number };
+  /** 몸 전체 보이는 정도 (1 = 다 보임). 3인칭 카메라가 바짝 붙으면 점무늬로 흐리게 */
+  uFade: { value: number };
 }
 
 export function createCatSkinUniforms(): CatSkinUniforms {
@@ -40,7 +44,19 @@ export function createCatSkinUniforms(): CatSkinUniforms {
     uFurLen: { value: 0.05 },
     uPad: { value: PAD_PINK.clone() },
     uPadDark: { value: PAD_DARK.clone() },
+    uNearCut: { value: 0 },
+    uFade: { value: 1 },
   };
+}
+
+/**
+ * 카메라에서 이 거리(m)보다 가까운 고양이 몸 표면은 그리지 않는다. 고양이 크기에 비례.
+ * - 1인칭: 달릴 때 목·어깨가 카메라 약 5.6cm 앞까지 들어와 화면을 가렸다 (2026-11-07 측정).
+ *   앞발(약 25cm)·가슴은 보이도록 9cm
+ * - 3인칭: 표면을 뚫으면 구멍 너머로 몸 속이 보여 어색하다. 대신 몸 전체를 흐리게 한다 (uFade, bodyFade)
+ */
+export function bodyNearCut(firstPerson: boolean, scale: number): number {
+  return firstPerson ? 0.09 * scale : 0;
 }
 
 const PAD_PINK = new THREE.Color('#e3a29d');
@@ -131,6 +147,8 @@ uniform vec3 uEye;
 uniform float uPattern;
 uniform vec3 uPad;
 uniform vec3 uPadDark;
+uniform float uNearCut;
+uniform float uFade;
 varying vec3 vRest;
 /** 패드 부분 (거칠기를 낮춰 촉촉하게 보이게 한다) */
 float catPadMask = 0.0;
@@ -268,6 +286,13 @@ vec3 catEyeColor(vec3 p) {
 `;
 
 const FRAGMENT_MAP = /* glsl */ `
+// 1인칭: 카메라 바로 앞 몸 표면(목·어깨)은 그리지 않는다. 경계는 점무늬로 서서히.
+// 3인칭: 카메라가 바짝 붙으면 몸 전체를 점무늬로 흐리게 (uFade)
+if (uNearCut > 0.0) {
+  float catNear = smoothstep(uNearCut * 0.75, uNearCut, length(vViewPosition));
+  if (catNear < catHash(vec3(floor(gl_FragCoord.xy), 7.0))) discard;
+}
+if (uFade < 0.999 && uFade < catHash(vec3(floor(gl_FragCoord.xy), 3.0))) discard;
 #ifdef CAT_FUR
   // 털 겹: 털이 없는 곳은 지우고, 바깥 겹일수록 가닥을 듬성하게 남긴다 (가닥 = 기준 위치의 작은 칸)
   if (vFurMask < 0.05) discard;
@@ -321,6 +346,6 @@ export function createCatSkinMaterial(source: THREE.MeshStandardMaterial, unifor
         // 발바닥 패드는 촉촉하게: 거칠기를 낮춘다
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.4, catPadMask);');
   };
-  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v2' : 'cat-skin-v2');
+  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v4' : 'cat-skin-v4');
   return m;
 }
