@@ -201,7 +201,10 @@ const FRAGMENT_MAP = /* glsl */ `
   vec4 sampledDiffuseColor = texture2D( map, vMapUv );
   vec3 catCol = sampledDiffuseColor.rgb;
   vec3 rp = vRest;
-  bool eye = abs(abs(rp.x) - 0.345) < 0.13 && abs(rp.y - 2.857) < 0.13 && rp.z > 1.92 && rp.z < 2.06;
+  // 눈: 눈 뼈를 따르는 눈 판(텍스처의 눈 영역 UV)만. 위치만 보면 눈 뒤 얼굴 표면까지 눈으로 칠해져
+  // 깜빡일 때 그 자국이 남는다 (2026-11-07 "눈이 두 개로 보임" 수정)
+  bool eyeUv = vMapUv.x > 0.875 || (vMapUv.x >= 0.375 && vMapUv.x < 0.5 && vMapUv.y >= 0.75) || (vMapUv.x < 0.125 && vMapUv.y >= 0.75);
+  bool eye = eyeUv && abs(abs(rp.x) - 0.345) < 0.13 && abs(rp.y - 2.857) < 0.13 && rp.z > 1.92 && rp.z < 2.06;
   if (eye) {
     // 눈 정점은 둥근 사각형이라 원 바깥 모서리는 눈꺼풀 털로 칠한다
     float er = length(vec2(abs(rp.x) - 0.345, rp.y - 2.857) / 0.115);
