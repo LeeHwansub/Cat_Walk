@@ -409,3 +409,46 @@ kbd {
     bottom: 34px;
   }
 }
+
+/* ---- 정보 페이지 링크 (i 버튼) */
+#hud a {
+  pointer-events: auto;
+}
+
+.hud-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  font: italic 600 18px Georgia, 'Times New Roman', serif;
+  text-decoration: none;
+}
+
+.icon-link:hover {
+  background: #fff;
+}
+
+.icon-link.corner {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+}
+
+.info-more {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
