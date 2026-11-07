@@ -10,6 +10,7 @@ import { resolveFurQuality } from './cat/fur';
 import { gazeAngles, GazePicker, type GazePoint } from './cat/gaze';
 import { postureBlocksMovement } from './cat/posture';
 import { ProceduralCatRig } from './cat/ProceduralCatRig';
+import { SkinnedCatRig } from './cat/SkinnedCatRig';
 import type { CatRig } from './cat/rig';
 import { Input } from './core/input';
 import { createRng, type Rng } from './core/rng';
@@ -87,13 +88,14 @@ export class Game {
   private fadeEl: HTMLElement | null = null;
   private resetting = false;
 
-  constructor(private readonly container: HTMLElement) {
+  /** catModel: 불러온 glb 고양이(없으면 이전 도형 모델) */
+  constructor(private readonly container: HTMLElement, catModel: THREE.Object3D | null = null) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
     this.map = buildNeighborhood();
     this.stage.scene.add(this.map.group);
 
-    this.rig = new ProceduralCatRig(this.save.cat);
+    this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel) : new ProceduralCatRig(this.save.cat);
     this.stage.scene.add(this.rig.root);
     this.ctrl = new CatController(this.map.collision, this.rig.cycleLength, effectiveScale(this.save.cat.stage, this.save.cat.size));
     this.ctrl.girth = girthScale(this.save.cat.build);
@@ -292,6 +294,7 @@ export class Game {
     );
     this.rig.root.position.set(this.ctrl.x, this.floatHeight, this.ctrl.z);
     this.rig.root.rotation.y = this.ctrl.heading;
+    this.rig.setFirstPerson?.(this.cam.mode === 'cat');
     this.rig.apply(pose, now);
 
     this.cam.update(dt, now, { x: this.ctrl.x, y: this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);

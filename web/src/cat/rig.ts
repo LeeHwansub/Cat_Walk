@@ -7,8 +7,8 @@ import type { CatPose } from './pose';
 export const HEAD_LAYER = 1;
 
 /**
- * 고양이 모델 인터페이스. 지금은 ProceduralCatRig 하나뿐이지만,
- * 나중에 리깅된 glTF 모델로 바꿀 때 이 인터페이스만 구현하면 된다. (D-14)
+ * 고양이 모델 인터페이스 (D-14). 기본은 glb 뼈대 모델 SkinnedCatRig (D-31),
+ * 이전 도형 모델 ProceduralCatRig는 비교용으로 남겨 둔다 (?rig=procedural).
  */
 export interface CatRig {
   /** 지면에 놓이는 루트. 위치와 방향은 컨트롤러가 정한다. */
@@ -23,4 +23,6 @@ export interface CatRig {
   twitchEar(): void;
   /** 털 표현 품질 */
   setFurQuality(q: ResolvedFurQuality): void;
+  /** 캣캠(1인칭) 중인지. 머리가 시야를 가리는 모델은 이때 머리를 숨긴다 */
+  setFirstPerson?(on: boolean): void;
 }
