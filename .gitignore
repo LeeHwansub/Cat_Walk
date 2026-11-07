@@ -1,3 +1,6 @@
 _box
 .claude
 .trail
+
+# 파이썬 캐시 (tools/blender 스크립트 실행 시 생김)
+__pycache__/

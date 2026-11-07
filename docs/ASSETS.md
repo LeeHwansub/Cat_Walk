@@ -143,6 +143,7 @@ D-18에 따라 사용자가 제공한 파일을 적용했다 (1.1절). 출처는
 - 자세에 쓰는 뼈: 몸통·척추 2·목·머리·네 다리(19개). 꼬리·귀·눈·입은 코드.
 - 불러오기 옵션: 기본 옵션은 메시가 뭉개진다. `guess_original_bind_pose=False`, `bone_heuristic='TEMPERANCE'`로 불러오고, 파일에 든 걷기 동작 연결은 지운다.
 - 원본 모델(Toon Cat FREE, CC BY 4.0)의 뼈대를 쓰므로 `CREDITS.md` 1장 수정 내역에 기록.
+- 자세 스크립트: `tools/blender/poses.py`(자세)·`posekit.py`(공통 도구). 실행 방법은 `tools/blender/README.md`. 저장소에서 다시 실행하면 지금 파일과 같은 glb가 나온다 (2026-11-07 확인).
 
 ## 7. 문의 창 고양이: Black Cat (2026-11-07, D-34)
 - Sketchfab "Black Cat" — Kinga Kroliczek, CC BY 4.0 (2023-10-16 공개, API·glb 메타데이터로 확인). 뼈대·동작 없는 정지 모델(메시 6개, 텍스처 1장).
