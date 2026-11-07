@@ -77,6 +77,8 @@ export class CatAnimator {
     p.pawToFace += (t.pawToFace - p.pawToFace) * k(4);
     p.groom += (t.groom - p.groom) * k(4);
     p.groomPhase = t.groomPhase;
+    p.bellyUp += (t.bellyUp - p.bellyUp) * k(3);
+    p.sideLie += (t.sideLie - p.sideLie) * k(3);
     p.lick += (t.lick - p.lick) * k(6);
     p.eyesClosed += (t.eyesClosed - p.eyesClosed) * k(t.eyesClosed > p.eyesClosed ? 1.2 : 5);
     const up = input.standingUp;
@@ -155,6 +157,7 @@ export class CatAnimator {
       case 'sideLie':
         t.lie = 1;
         t.roll = 0.5;
+        t.sideLie = 1; // 자세 파일이 있으면 Blender로 만든 옆으로 눕기 자세
         t.tailUp = 0;
         t.tailWag = 0.05;
         t.headPitch = 0.1;
@@ -164,6 +167,7 @@ export class CatAnimator {
         // 배를 보이고 뒤집어 누움: 편안할 때만 보이는 자세. 고개를 옆으로 꺾고 꼬리를 살랑인다
         t.lie = 1;
         t.roll = 1;
+        t.bellyUp = 1; // 자세 파일이 있으면 Blender로 만든 배 보이기 자세
         t.tailUp = 0;
         t.tailWag = 0.15;
         t.headTilt = 0.3;
@@ -239,6 +243,8 @@ export class CatAnimator {
       t.stretch = 0;
       t.manSit = 0;
       t.groom = 0;
+      t.bellyUp = 0;
+      t.sideLie = 0;
     }
     const fl = input.floating ?? 0;
     if (fl > 0.01) {
@@ -248,6 +254,8 @@ export class CatAnimator {
       t.speed *= 1 - fl;
       t.pawLift *= 1 - fl;
       t.groom *= 1 - fl;
+      t.bellyUp *= 1 - fl;
+      t.sideLie *= 1 - fl;
       t.tuck *= 1 - fl;
       t.roll *= 1 - fl;
       t.stretch *= 1 - fl;
@@ -262,6 +270,8 @@ export class CatAnimator {
       t.lie = 0;
       t.pawLift = 0;
       t.groom = 0;
+      t.bellyUp = 0;
+      t.sideLie = 0;
       t.tuck = 0;
       t.roll = 0;
       t.stretch = 0;

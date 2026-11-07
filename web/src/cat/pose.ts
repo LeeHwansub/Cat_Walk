@@ -47,6 +47,10 @@ export interface CatPose {
   groom: number;
   /** 그루밍 동작 진행 위치 0 ~ 1 */
   groomPhase: number;
+  /** 0 ~ 1 배 보이기 자세 비율 (자세 파일이 있는 모델이 쓴다) */
+  bellyUp: number;
+  /** 0 ~ 1 옆으로 눕기 자세 비율 */
+  sideLie: number;
   /** 눈동자 좌우 (고개로 다 못 돌린 시선, + 왼쪽) */
   eyeYaw: number;
   /** 눈동자 위아래 (+ 아래) */
@@ -77,6 +81,8 @@ export function neutralPose(): CatPose {
     run: 0,
     groom: 0,
     groomPhase: 0,
+    bellyUp: 0,
+    sideLie: 0,
     eyeYaw: 0,
     eyePitch: 0,
   };

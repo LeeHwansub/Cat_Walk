@@ -19,6 +19,8 @@ export interface CatSkinUniforms {
   uPattern: { value: number };
   /** 몸통을 노멀 방향으로 부풀리는 양 (모델 단위). 체형·풍선 */
   uInflate: { value: number };
+  /** 풍선: 몸통을 공 모양으로 당기는 세기 0 ~ 1 (balloonRound) */
+  uBalloon: { value: number };
   /** 털 겹 바깥쪽 끝까지의 길이 (모델 단위) */
   uFurLen: { value: number };
   /** 발바닥 패드 색 (털색·무늬에 따라 분홍 ~ 검정) */
@@ -41,6 +43,7 @@ export function createCatSkinUniforms(): CatSkinUniforms {
     uEye: { value: new THREE.Color() },
     uPattern: { value: 0 },
     uInflate: { value: 0 },
+    uBalloon: { value: 0 },
     uFurLen: { value: 0.05 },
     uPad: { value: PAD_PINK.clone() },
     uPadDark: { value: PAD_DARK.clone() },
@@ -97,6 +100,7 @@ export function inflateFor(girth: number): number {
 
 const VERTEX_HEAD = /* glsl */ `
 uniform float uInflate;
+uniform float uBalloon;
 varying vec3 vRest;
 #ifdef CAT_FUR
 uniform float uFurLen;
@@ -125,7 +129,14 @@ vRest = position;
   float m = catBodyMask(position);
   transformed += objectNormal * uInflate * m;
   // 통통할수록 배가 아래로 처진다
-  transformed.y -= max(uInflate, 0.0) * 0.35 * m * (1.0 - smoothstep(1.0, 1.6, position.y));
+  transformed.y -= max(uInflate, 0.0) * 0.35 * m * (1.0 - smoothstep(1.0, 1.6, position.y)) * (1.0 - uBalloon);
+  // 풍선: 몸통 정점을 몸 가운데를 중심으로 한 구 표면 쪽으로 당겨 공처럼 둥글게
+  if (uBalloon > 0.0) {
+    vec3 bc = vec3(0.0, 1.6, -0.15);
+    vec3 d = transformed - bc;
+    float len = max(length(d), 1e-4);
+    transformed = bc + d / len * mix(len, 1.4, uBalloon * m);
+  }
 }
 #ifdef CAT_FUR
 vFurMask = catFurMask(position, uv);
@@ -346,6 +357,6 @@ export function createCatSkinMaterial(source: THREE.MeshStandardMaterial, unifor
         // 발바닥 패드는 촉촉하게: 거칠기를 낮춘다
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.4, catPadMask);');
   };
-  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v4' : 'cat-skin-v4');
+  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v5' : 'cat-skin-v5');
   return m;
 }

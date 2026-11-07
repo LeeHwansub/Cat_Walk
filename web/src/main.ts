@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import { CAT_GROOM_URL, loadCatModel, loadMotion, loadRunMotion } from './cat/catModel';
+import { CAT_GROOM_URL, CAT_POSES_URL, loadCatModel, loadMotion, loadRunMotion } from './cat/catModel';
 import { Game } from './game';
 import { bindUi } from './ui/ui';
 
@@ -11,14 +11,15 @@ async function boot(): Promise<void> {
   let catModel: THREE.Object3D | null = null;
   let runMotion: THREE.Object3D | null = null;
   let groomMotion: THREE.Object3D | null = null;
+  let liePoses: THREE.Object3D | null = null;
   if (new URLSearchParams(location.search).get('rig') !== 'procedural') {
     try {
-      [catModel, runMotion, groomMotion] = await Promise.all([loadCatModel(), loadRunMotion(), loadMotion(CAT_GROOM_URL)]);
+      [catModel, runMotion, groomMotion, liePoses] = await Promise.all([loadCatModel(), loadRunMotion(), loadMotion(CAT_GROOM_URL), loadMotion(CAT_POSES_URL)]);
     } catch (err) {
       console.error('고양이 모델을 불러오지 못해 도형 모델로 시작합니다', err);
     }
   }
-  const game = new Game(container, catModel, { run: runMotion, groom: groomMotion });
+  const game = new Game(container, catModel, { run: runMotion, groom: groomMotion, poses: liePoses });
   bindUi(game);
   game.start();
   // 개발 서버에서만 브라우저 점검용으로 노출한다 (프로덕션 빌드에서는 제거됨)

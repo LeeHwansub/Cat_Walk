@@ -93,7 +93,7 @@ export class Game {
   constructor(
     private readonly container: HTMLElement,
     catModel: THREE.Object3D | null = null,
-    motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null } = {},
+    motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null; poses?: THREE.Object3D | null } = {},
   ) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);

@@ -22,7 +22,7 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | 다운로드 URL | https://sketchfab.com/3d-models/toon-cat-free-b2bd1ee7858444bda366110a2d960386 (Sketchfab에서 glb로 받음, 파일 안 생성기 표기 `Sketchfab-12.66.0`) |
 | 라이선스 | CC BY 4.0 (Creative Commons Attribution) — https://creativecommons.org/licenses/by/4.0/ (Sketchfab 원본 페이지 표기, 2016-06-29 공개) |
 | 상업적 배포 | 확인 전 |
-| 저장소 파일 | `web/public/assets/models/cat.glb` (원본 파일명 `캐릭터.glb`) |
+| 저장소 파일 | `web/public/assets/models/cat.glb` (원본 파일명 `캐릭터.glb`), `web/public/assets/models/cat-poses.glb` (이 모델 뼈대로 만든 누운 자세) |
 
 ### 수정 내역
 - 파일 자체는 수정하지 않고 이름만 바꿈 (`캐릭터.glb` → `cat.glb`).
@@ -30,6 +30,8 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 - 털색·무늬·눈 색을 셰이더로 다시 칠함 (원본 그라데이션 텍스처 대신).
 - 체형 조절을 위해 몸통을 셰이더로 부풀리고, 털 겹(shell fur)을 덧씌움.
 - 접힌 귀, 아기 비율, 목걸이 등 외형 옵션을 코드로 더함.
+- 같은 뼈대로 Blender 5.4에서 누운 자세(배 보이기·옆으로 눕기)를 잡아 **뼈대·자세만** `cat-poses.glb`로 내보냄 (메시·텍스처 없음, 2026-11-07).
+- 풍선 이스터 에그에서 몸통을 셰이더로 공 모양으로 둥글게 만듦.
 
 ## 2. 달리기 동작 — Lowpoly Cat Rig + Run Animation
 

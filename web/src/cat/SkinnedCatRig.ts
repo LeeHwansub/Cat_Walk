@@ -8,6 +8,8 @@ import type { CatPose } from './pose';
 import { HEAD_LAYER, type CatRig } from './rig';
 import { ClipRetarget, GROOM_BONE_MAP, RUN_BONE_MAP, type BoneMapEntry } from './retarget';
 import { ClipSampler } from './clipSampler';
+import { LIE_POSE_BONES, LIE_POSES, type LiePose } from './liePoses';
+import { balloonRound, floatPawTarget } from './balloonPose';
 
 /**
  * 뼈대가 있는 glb 고양이 모델 (사용자 제공 캐릭터.glb = Sketchfab "Toon Cat FREE", CC BY 4.0).
@@ -121,6 +123,7 @@ export class SkinnedCatRig implements CatRig {
   /** 목걸이 위치: 가슴(척추 2)과 머리 뼈 기준 오프셋. 매 프레임 둘 사이(머리 쪽 60%)에 둔다 */
   private readonly collarFromSpine = new THREE.Matrix4();
   private readonly collarFromHead = new THREE.Matrix4();
+  private readonly collarFromNeck = new THREE.Matrix4();
   /** 털 겹: 같은 메시를 같은 뼈대에 묶어 겹마다 노멀 방향으로 부풀린다 */
   private readonly shells: { mesh: THREE.SkinnedMesh; layer: { value: number } }[] = [];
 
@@ -164,6 +167,12 @@ export class SkinnedCatRig implements CatRig {
   private run: { motion: Motion; cycle: number; lift: number } | null = null;
   /** 그루밍: 다른 뼈대(grumming.glb)의 동작을 옮겨 쓴다 */
   private groom: Motion | null = null;
+  /**
+   * 누운 자세 (같은 뼈대로 Blender에서 만든 자세 파일). Blender가 내보낸 파일은 몸통·다리 위쪽 뼈의
+   * 기준 축이 원본과 달라(−90°·180°) 회전값을 그대로 넣으면 몸이 세로로 선다. 그래서 달리기·그루밍처럼
+   * 기준 자세에서 돈 만큼(월드 회전 차이)만 옮긴다. 같은 고양이라 좌표 맞춤은 없음
+   */
+  private liePoses: { name: LiePose; motion: Motion }[] = [];
 
   /**
    * 동작 클립 (glb 안의 걷기 클립 등). 걸음 위상에 맞춰 시간을 정하고, 다리·몸통 뼈만 가져와
@@ -180,7 +189,7 @@ export class SkinnedCatRig implements CatRig {
   /**
    * gltfScene: 고양이 모델(캐릭터.glb). motions: 다른 뼈대에서 옮겨 쓸 동작(없으면 코드 동작으로 대신)
    */
-  constructor(appearance: CatAppearance, gltfScene: THREE.Object3D, motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null } = {}) {
+  constructor(appearance: CatAppearance, gltfScene: THREE.Object3D, motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null; poses?: THREE.Object3D | null } = {}) {
     let mesh: THREE.SkinnedMesh | null = null;
     gltfScene.traverse((o) => {
       if (!mesh && (o as THREE.SkinnedMesh).isSkinnedMesh) mesh = o as THREE.SkinnedMesh;
@@ -301,6 +310,11 @@ export class SkinnedCatRig implements CatRig {
       this.model.position.y = 0;
     }
     this.groom = this.makeMotion(motions.groom, GROOM_BONE_MAP, 'j_body_00_12');
+    for (const name of LIE_POSES) {
+      const clip = motions.poses?.animations.find((a) => a.name === name);
+      const motion = clip ? this.makeMotion(motions.poses, LIE_POSE_BONES.map((n) => [n, n] as BoneMapEntry), 'torso_02', clip, new THREE.Quaternion()) : null;
+      if (motion) this.liePoses.push({ name, motion });
+    }
     this.buildCollar();
     // 캣캠: 눈 위치(머리는 캣캠 중 숨김). 가슴 뼈에 두면 달릴 때 어깨가 솟고 머리가 앞으로 나가
     // 카메라가 어깨 뒤에 갇혀 화면 아래를 가렸다 (2026-11-07). 목 뼈에 붙여 머리를 따라가게 한다
@@ -357,8 +371,10 @@ export class SkinnedCatRig implements CatRig {
     this.lastTime = time;
     this.resetPose();
 
-    const inflated = this.baseGirth * (1 + 0.28 * p.float);
+    const inflated = this.baseGirth * (1 + 0.12 * p.float);
     if (Math.abs(inflated - this.girth) > 1e-3) this.setGirth(inflated);
+    // 풍선: 옆으로만 부풀면 각진 덩어리처럼 보여 몸통을 공 모양으로 당긴다
+    this.uniforms.uBalloon.value = balloonRound(p.float);
 
     // ---- 몸통
     const settle = Math.max(p.sit, p.lie, p.manSit);
@@ -366,8 +382,8 @@ export class SkinnedCatRig implements CatRig {
     const crouch = Math.max(0, p.headPitch - 0.55) * 0.8 * (1 - settle);
     let spinePitch = lerp(lerp(SPINE_STAND, SPINE_SIT, p.sit), SPINE_LIE, p.lie) + crouch + Math.sin(p.gaitPhase * Math.PI * 4 + 1) * 0.015 * p.speed;
     spinePitch = lerp(spinePitch, SPINE_MAN, p.manSit) + STRETCH_PITCH * p.stretch;
-    const swayZ = p.float > 0.01 ? Math.sin(time * 0.9) * 0.06 * p.float : 0;
-    const swayX = p.float > 0.01 ? Math.sin(time * 0.7 + 1) * 0.04 * p.float : 0;
+    const swayZ = p.float > 0.01 ? Math.sin(time * 0.9) * 0.1 * p.float : 0;
+    const swayX = p.float > 0.01 ? Math.sin(time * 0.7 + 1) * 0.07 * p.float : 0;
     this.qTorso.setFromEuler(this.euler.set(spinePitch + swayX, 0, rollA + swayZ, 'ZXY'));
     this.setRel(this.torso, this.qTorso);
     const breathe = Math.sin(time * (p.lie > 0.5 ? 1.4 : 2.4)) * (p.lie > 0.5 ? 0.02 : 0.012);
@@ -440,26 +456,48 @@ export class SkinnedCatRig implements CatRig {
       this.model.position.y -= (low - 0.004) * groomW;
       this.root.updateMatrixWorld(true);
     }
-    this.updateCollar();
+
+    // 누운 자세: Blender로 만든 배 보이기·옆으로 눕기 자세를 섞는다 (몸통·척추·목·머리·다리. 꼬리·귀는 코드)
+    for (const lp of this.liePoses) {
+      const w = p[lp.name] * (1 - p.float);
+      if (w <= 0.001) continue;
+      this.computeMotion(lp.motion, 0);
+      for (const { bone } of lp.motion.targets) bone.quaternion.slerp(lp.motion.local.get(bone)!, w);
+      this.root.updateMatrixWorld(true);
+      // 등·옆구리가 땅에 닿게: 몸통·머리 정점과 발 중 가장 낮은 점을 땅으로
+      let low = this.lowestPoint();
+      for (const leg of this.legs) low = Math.min(low, this.root.worldToLocal(leg.bones[leg.bones.length - 1].getWorldPosition(this.v2)).y - this.legs[0].pawY * this.legScale);
+      this.model.position.y -= (low - 0.004) * w;
+      this.root.updateMatrixWorld(true);
+    }
+    this.updateCollar(Math.max(p.bellyUp, p.sideLie));
   }
 
-  /** 목걸이를 가슴 뼈와 머리 뼈가 각각 놓을 자리 사이(머리 쪽 60%)에 둔다 */
-  private updateCollar(): void {
+  /**
+   * 목걸이를 가슴 뼈와 머리 뼈가 각각 놓을 자리 사이(머리 쪽 60%)에 둔다.
+   * 누운 자세(lieW)에서는 머리가 가슴에 비해 크게 돌아 그 사이가 목 밖으로 벗어나므로 목 뼈 기준 자리로 옮긴다
+   */
+  private updateCollar(lieW: number): void {
     const rootInv = this.rootInv.copy(this.root.matrixWorld).invert();
-    const a = this.m4.copy(rootInv).multiply(this.spine2.matrixWorld).multiply(this.collarFromSpine);
+    const place = (bone: THREE.Object3D, off: THREE.Matrix4, pos: THREE.Vector3, q: THREE.Quaternion, sc: THREE.Vector3) =>
+      this.m4.copy(rootInv).multiply(bone.matrixWorld).multiply(off).decompose(pos, q, sc);
     const pa = new THREE.Vector3();
     const qa = new THREE.Quaternion();
     const sa = new THREE.Vector3();
-    a.decompose(pa, qa, sa);
-    const b = this.m4.copy(rootInv).multiply(this.head.matrixWorld).multiply(this.collarFromHead);
+    place(this.spine2, this.collarFromSpine, pa, qa, sa);
     const pb = new THREE.Vector3();
     const qb = new THREE.Quaternion();
     const sb = new THREE.Vector3();
-    b.decompose(pb, qb, sb);
+    place(this.head, this.collarFromHead, pb, qb, sb);
     this.collar.position.lerpVectors(pa, pb, 0.6);
     this.collar.quaternion.copy(qa).slerp(qb, 0.6);
-    // 크기는 가슴 기준 (머리 크기 배율·캣캠 머리 숨김의 영향을 받지 않게)
-    this.collar.scale.copy(sa);
+    if (lieW > 0.001) {
+      place(this.neck, this.collarFromNeck, pb, qb, sb);
+      this.collar.position.lerp(pb, lieW);
+      this.collar.quaternion.slerp(qb, lieW);
+    }
+    // 크기는 가슴 기준 (머리 크기 배율·캣캠 머리 숨김의 영향을 받지 않게). 누우면 목이 늘어나 가늘어져 조금 줄인다
+    this.collar.scale.copy(sa).multiplyScalar(1 - 0.18 * lieW);
   }
 
   // ---------------------------------------------------------------- 구성
@@ -487,10 +525,15 @@ export class SkinnedCatRig implements CatRig {
   }
 
   /** 다른 뼈대의 동작 하나를 이 모델 뼈에 짝지어 준비한다. 원본이 없으면 null */
-  private makeMotion(scene: THREE.Object3D | null | undefined, map: BoneMapEntry[], rootName: string): Motion | null {
-    const clip = scene?.animations[0];
+  private makeMotion(
+    scene: THREE.Object3D | null | undefined,
+    map: BoneMapEntry[],
+    rootName: string,
+    clip = scene?.animations[0],
+    align?: THREE.Quaternion,
+  ): Motion | null {
     if (!scene || !clip) return null;
-    const retarget = new ClipRetarget(scene, clip, map, undefined, rootName);
+    const retarget = new ClipRetarget(scene, clip, map, align, rootName);
     const names = new Map(map.map(([, t]) => [norm(t), t] as const));
     // 계층 순서(부모 먼저)로 대상 뼈를 모은다
     const targets = this.bones.filter((b) => names.has(norm(b.name))).map((b) => ({ bone: b, name: names.get(norm(b.name))! }));
@@ -662,7 +705,8 @@ export class SkinnedCatRig implements CatRig {
     const collarRest = this.model.matrix.clone().multiply(at); // 루트 기준 (성체 m)
     this.collarFromSpine.copy(inRoot(this.spine2).invert().multiply(collarRest));
     this.collarFromHead.copy(inRoot(this.head).invert().multiply(collarRest));
-    this.updateCollar();
+    this.collarFromNeck.copy(inRoot(this.neck).invert().multiply(collarRest));
+    this.updateCollar(0);
   }
 
   // ---------------------------------------------------------------- 애니메이션
@@ -750,7 +794,6 @@ export class SkinnedCatRig implements CatRig {
   private solveLeg(leg: Leg, p: CatPose, rollA: number): void {
     const toRoot = (o: THREE.Object3D, out: THREE.Vector3) => this.root.worldToLocal(o.getWorldPosition(out));
     const top = toRoot(leg.bones[0], new THREE.Vector3());
-    const sy = top.y;
     const sz = top.z;
     const ls = this.legScale;
     const hipZ = this.rest.get(this.legs[0].bones[0])!.rootPos.z;
@@ -783,12 +826,15 @@ export class SkinnedCatRig implements CatRig {
       fz = lerp(fz, hipZ + 0.11, p.manSit);
       fy = lerp(fy, 0.008, p.manSit);
     }
+    let fx = top.x;
     if (p.float > 0.001) {
-      const paddle = Math.sin(this.lastTime * 2.2 + leg.phaseOffset * Math.PI * 2) * 0.02;
-      fy = lerp(fy, sy - 0.3, p.float);
-      fz = lerp(fz, sz + paddle, p.float);
+      // 떠 있으면 다리를 바깥·앞뒤로 벌리고 허우적거린다 (몸 밑에 일자로 모이지 않게)
+      const f = floatPawTarget(top, leg.front, this.lastTime, leg.phaseOffset);
+      fx = lerp(fx, f.x, p.float);
+      fy = lerp(fy, f.y - leg.pawY, p.float);
+      fz = lerp(fz, f.z, p.float);
     }
-    const target = this.v1.set(top.x, fy + leg.pawY, fz);
+    const target = this.v1.set(fx, fy + leg.pawY, fz);
 
     // 그루밍: 오른쪽 앞발을 입이나 얼굴로
     if (leg.front && leg.side === -1 && p.pawLift > 0.001) {
