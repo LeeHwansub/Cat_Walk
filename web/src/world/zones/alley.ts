@@ -76,7 +76,7 @@ function roadMarkings(k: MapKit): void {
 /** 좁은 옆 골목: 양옆은 이웃 건물 벽, 끝에는 담장. 안쪽에 평상과 화분 */
 function sideAlley(k: MapKit, minX: number, maxX: number, b: Rect): void {
   const mid = (minX + maxX) / 2;
-  k.box(maxX - minX, 1.6, 0.2, k.mat('#b9b2a6'), mid, 0.8, b.maxZ - 0.1);
+  k.occluders.push(k.box(maxX - minX, 1.6, 0.2, k.mat('#b9b2a6'), mid, 0.8, b.maxZ - 0.1));
   const deck = k.box(1.8, 0.38, 1.3, k.mat('#a0784e'), mid, 0.19, 10.5);
   k.occluders.push(deck);
   k.solidRect(mid - 0.9, mid + 0.9, 10.5 - 0.65, 10.5 + 0.65);
@@ -84,8 +84,11 @@ function sideAlley(k: MapKit, minX: number, maxX: number, b: Rect): void {
   pot(k, minX + 0.4, 6.5);
   pot(k, maxX - 0.4, 8.2);
   weeds(k, maxX - 0.35, 12.5);
-  k.box(0.3, 8, b.maxZ - WALL_Z, k.mat('#cfc8bb'), minX - 0.15, 4, (b.maxZ + WALL_Z) / 2);
-  k.box(0.3, 4.5, b.maxZ - WALL_Z, k.mat('#d8cfba'), maxX + 0.15, 2.25, (b.maxZ + WALL_Z) / 2);
+  // 높은 벽·담장은 카메라도 막는다 (빠지면 카메라가 벽을 뚫고 들어가 벽 속이 보인다)
+  k.occluders.push(
+    k.box(0.3, 8, b.maxZ - WALL_Z, k.mat('#cfc8bb'), minX - 0.15, 4, (b.maxZ + WALL_Z) / 2),
+    k.box(0.3, 4.5, b.maxZ - WALL_Z, k.mat('#d8cfba'), maxX + 0.15, 2.25, (b.maxZ + WALL_Z) / 2),
+  );
   k.solidRect(minX - 0.3, minX, WALL_Z, b.maxZ);
   k.solidRect(maxX, maxX + 0.3, WALL_Z, b.maxZ);
 }
@@ -100,7 +103,7 @@ function parkingLot(k: MapKit, minX: number, maxX: number, b: Rect): void {
   k.interests.push({ kind: 'sunspot', x: maxX - 1, z: -5, r: 0.8 });
   weeds(k, maxX - 0.4, -11.5);
   for (const x of [minX, maxX]) {
-    k.box(0.2, 1.4, Math.abs(b.minZ) - WALL_Z, k.mat('#b9b2a6'), x, 0.7, (b.minZ - WALL_Z) / 2);
+    k.occluders.push(k.box(0.2, 1.4, Math.abs(b.minZ) - WALL_Z, k.mat('#b9b2a6'), x, 0.7, (b.minZ - WALL_Z) / 2));
     k.solidRect(x - 0.1, x + 0.1, b.minZ, -WALL_Z);
   }
 }
@@ -113,6 +116,6 @@ function emptyLot(k: MapKit, minX: number, maxX: number): void {
   g.receiveShadow = true;
   k.group.add(g);
   for (let i = 0; i < 6; i++) weeds(k, range(k.rng, minX + 0.5, maxX - 0.5), range(k.rng, -8, -3.8));
-  k.box(maxX - minX, 1.3, 0.2, k.mat('#b9b2a6'), (minX + maxX) / 2, 0.65, -8.5);
+  k.occluders.push(k.box(maxX - minX, 1.3, 0.2, k.mat('#b9b2a6'), (minX + maxX) / 2, 0.65, -8.5));
   k.solidRect(minX, maxX, -8.6, -8.4);
 }
