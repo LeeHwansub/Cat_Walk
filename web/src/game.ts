@@ -13,6 +13,7 @@ import { ProceduralCatRig } from './cat/ProceduralCatRig';
 import { SkinnedCatRig } from './cat/SkinnedCatRig';
 import type { CatRig } from './cat/rig';
 import { Input } from './core/input';
+import type { StickState } from './ui/joystick';
 import { createRng, type Rng } from './core/rng';
 import { browserStore, clearSave, defaultSave, loadSave, writeSave, type KeyValueStore, type SaveData, type Settings } from './save/storage';
 import { BalloonFloat, isBalloon } from './systems/balloon';
@@ -188,6 +189,11 @@ export class Game {
     this.rig.setFurQuality(resolveFurQuality(s.furQuality, coarse));
     this.audio.setMute(s.muteAll, s.muteCat);
     this.persist();
+  }
+
+  /** 모바일 조이스틱 방향 (ui/joystick.ts) */
+  setStick(s: StickState): void {
+    this.input.setStick(s);
   }
 
   toggleCamera(): void {

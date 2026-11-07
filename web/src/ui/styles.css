@@ -452,3 +452,35 @@ kbd {
   font-weight: 600;
 }
 
+/* ---- 모바일 조이스틱 (터치 기기에서만 만들어짐) */
+.joystick {
+  position: absolute;
+  left: max(20px, env(safe-area-inset-left));
+  bottom: 112px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(255, 251, 245, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.joystick.active {
+  background: rgba(255, 251, 245, 0.5);
+}
+
+.joystick-knob {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+

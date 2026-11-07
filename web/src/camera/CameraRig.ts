@@ -46,13 +46,17 @@ export class CameraRig {
   }
 
   attach(dom: HTMLElement, now: () => number): void {
+    // 카메라 회전은 첫 번째 손가락(포인터)만 따른다. 두 번째 손가락이 닿아도 시점이 튀지 않게
+    let activeId: number | null = null;
     dom.addEventListener('pointerdown', (e) => {
+      if (activeId !== null) return;
+      activeId = e.pointerId;
       this.dragging = true;
       this.lastPointer = { x: e.clientX, y: e.clientY };
       dom.setPointerCapture(e.pointerId);
     });
     dom.addEventListener('pointermove', (e) => {
-      if (!this.dragging) return;
+      if (!this.dragging || e.pointerId !== activeId) return;
       const dx = e.clientX - this.lastPointer.x;
       const dy = e.clientY - this.lastPointer.y;
       this.lastPointer = { x: e.clientX, y: e.clientY };
@@ -66,7 +70,11 @@ export class CameraRig {
         this.lookPitch = THREE.MathUtils.clamp(this.lookPitch + dy * 0.003, -0.9, 0.5);
       }
     });
-    const end = () => (this.dragging = false);
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== activeId) return;
+      activeId = null;
+      this.dragging = false;
+    };
     dom.addEventListener('pointerup', end);
     dom.addEventListener('pointercancel', end);
     dom.addEventListener(
