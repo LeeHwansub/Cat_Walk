@@ -21,6 +21,10 @@ export interface CatSkinUniforms {
   uInflate: { value: number };
   /** 털 겹 바깥쪽 끝까지의 길이 (모델 단위) */
   uFurLen: { value: number };
+  /** 발바닥 패드 색 (털색·무늬에 따라 분홍 ~ 검정) */
+  uPad: { value: THREE.Color };
+  /** 패드 얼룩 색 (삼색 고양이는 분홍·검정이 섞인 패드) */
+  uPadDark: { value: THREE.Color };
 }
 
 export function createCatSkinUniforms(): CatSkinUniforms {
@@ -34,7 +38,27 @@ export function createCatSkinUniforms(): CatSkinUniforms {
     uPattern: { value: 0 },
     uInflate: { value: 0 },
     uFurLen: { value: 0.05 },
+    uPad: { value: PAD_PINK.clone() },
+    uPadDark: { value: PAD_DARK.clone() },
   };
+}
+
+const PAD_PINK = new THREE.Color('#e3a29d');
+const PAD_SALMON = new THREE.Color('#de9a88');
+const PAD_DARK = new THREE.Color('#2b2323');
+const PAD_BRICK = new THREE.Color('#7a4440');
+
+/**
+ * 발바닥 패드 색. 실제 고양이처럼 발 털이 흰색이면 분홍, 털이 어두울수록 검정에 가깝고,
+ * 치즈(주황) 고양이는 연어빛 분홍, 고등어(줄무늬)는 검정 ~ 벽돌빛이다.
+ */
+export function pawPadColor(a: CatAppearance): THREE.Color {
+  if (a.pattern === 'tuxedo' || a.pattern === 'tabbyWhite' || a.pattern === 'calico') return PAD_PINK.clone();
+  const fur = new THREE.Color(a.furColor);
+  const lum = 0.2126 * fur.r + 0.7152 * fur.g + 0.0722 * fur.b;
+  const t = THREE.MathUtils.smoothstep(lum, 0.03, 0.5);
+  const light = a.pattern === 'cheese' ? PAD_SALMON : a.pattern === 'mackerel' ? PAD_BRICK : PAD_PINK;
+  return PAD_DARK.clone().lerp(light, t);
 }
 
 /** 외형 값 → 셰이더 색 (도형 모델과 같은 규칙) */
@@ -47,6 +71,7 @@ export function applyAppearanceToUniforms(u: CatSkinUniforms, a: CatAppearance):
   u.uTip.value.copy(fur).multiplyScalar(a.pattern === 'cheese' ? 0.7 : 0.38);
   u.uEye.value.set(a.eyeColor);
   u.uPattern.value = PATTERN_INDEX[a.pattern];
+  u.uPad.value.copy(pawPadColor(a));
 }
 
 /** 몸통 둘레 배율 → 부풀리는 양 (몸통 반폭 약 0.8 모델 단위 기준) */
@@ -104,7 +129,11 @@ uniform vec3 uStripe;
 uniform vec3 uTip;
 uniform vec3 uEye;
 uniform float uPattern;
+uniform vec3 uPad;
+uniform vec3 uPadDark;
 varying vec3 vRest;
+/** 패드 부분 (거칠기를 낮춰 촉촉하게 보이게 한다) */
+float catPadMask = 0.0;
 
 float catHash(vec3 p) {
   p = fract(p * 0.3183099 + 0.1);
@@ -178,6 +207,53 @@ vec3 catFurColor(vec3 p, vec3 orig) {
   return c * shade;
 }
 
+/** 타원 거리 (0 = 경계, 음수 = 안쪽). r: 반지름 */
+float catEll(vec2 q, vec2 c, vec2 r) {
+  return length((q - c) / r) - 1.0;
+}
+/** 부드러운 합치기 (패드 가장자리를 매끈하게 잇는다) */
+float catSmin(float a, float b, float k) {
+  float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
+/**
+ * 발바닥: 큰 패드(뒤쪽이 세 갈래) 1개 + 발가락 패드 4개, 사이는 털.
+ * 발마다 가운데 기준 좌표 q (x: 바깥쪽 +, y: 발가락 쪽 +, 대략 -1~1). 기준값은 정점 분석 결과 (docs/ASSETS.md 6장)
+ */
+vec3 catPadColor(vec3 p, vec3 fur) {
+  bool front = p.z > 0.0;
+  vec2 c = front ? vec2(0.418, 1.104) : vec2(0.538, -0.812);
+  vec2 h = front ? vec2(0.13, 0.18) : vec2(0.105, 0.226);
+  vec2 q = vec2((abs(p.x) - c.x) / h.x, (p.z - c.y) / h.y);
+  // 큰 패드: 앞은 둥글고 뒤로 넓어지는 몸체. 뒤 가장자리는 세 갈래로 살짝 물결진다 (두 군데 오목)
+  float d = catEll(q, vec2(0.0, -0.24), vec2(0.6, 0.36));
+  d = catSmin(d, catEll(q, vec2(-0.34, -0.42), vec2(0.28, 0.2)), 0.1);
+  d = catSmin(d, catEll(q, vec2(0.0, -0.5), vec2(0.28, 0.2)), 0.1);
+  d = catSmin(d, catEll(q, vec2(0.34, -0.42), vec2(0.28, 0.2)), 0.1);
+  d = -catSmin(-d, catEll(q, vec2(-0.17, -0.7), vec2(0.06, 0.11)), 0.08);
+  d = -catSmin(-d, catEll(q, vec2(0.17, -0.7), vec2(0.06, 0.11)), 0.08);
+  // 발가락 패드 4개: 앞쪽으로 부채꼴, 바깥 두 개는 조금 뒤. 앞쪽이 살짝 좁은 달걀꼴
+  vec2 tq = q;
+  float t = catEll(tq, vec2(-0.6, 0.24), vec2(0.17, 0.21));
+  t = min(t, catEll(tq, vec2(-0.21, 0.54), vec2(0.18, 0.22)));
+  t = min(t, catEll(tq, vec2(0.21, 0.54), vec2(0.18, 0.22)));
+  t = min(t, catEll(tq, vec2(0.6, 0.24), vec2(0.17, 0.21)));
+  float pd = min(d, t);
+  float pad = 1.0 - smoothstep(-0.06, 0.04, pd);
+  catPadMask = pad;
+
+  vec3 col = uPad;
+  // 삼색: 분홍과 검정 얼룩이 섞인 패드
+  if (int(uPattern + 0.5) == 4) col = mix(col, uPadDark, smoothstep(0.5, 0.58, catNoise(p * 9.0 + vec3(1.7, 0.0, 4.2))));
+  // 볼록한 느낌: 가장자리는 어둡고 가운데는 살짝 밝게, 표면에 잔주름
+  float inner = smoothstep(0.0, -0.45, pd);
+  col *= mix(0.74, 1.06, inner);
+  col *= 0.96 + 0.08 * catNoise(p * 38.0 + vec3(0.37, 0.11, 0.73));
+  // 패드 사이·둘레는 털 (뿌리 쪽이라 조금 어둡게)
+  vec3 between = fur * 0.82;
+  return mix(between, col, pad);
+}
+
 /** 눈: 원본은 검은 원. 홍채 색 + 세로 동공 + 하이라이트 */
 vec3 catEyeColor(vec3 p) {
   vec2 q = vec2(abs(p.x) - 0.345, p.y - 2.857) / 0.115;
@@ -210,7 +286,7 @@ const FRAGMENT_MAP = /* glsl */ `
     float er = length(vec2(abs(rp.x) - 0.345, rp.y - 2.857) / 0.115);
     catCol = er < 1.0 ? catEyeColor(rp) : catFurColor(rp, vec3(0.25));
   } else if (rp.y < 0.012) {
-    catCol = vec3(0.42, 0.24, 0.24); // 발바닥
+    catCol = catPadColor(rp, catFurColor(rp, sampledDiffuseColor.rgb)); // 발바닥 (패드 + 털)
   } else if (vMapUv.x < 0.283) {
     catCol = catFurColor(rp, sampledDiffuseColor.rgb);
   } else if (vMapUv.x >= 0.75 && vMapUv.x < 0.875 && vMapUv.y < 0.4) {
@@ -238,8 +314,13 @@ export function createCatSkinMaterial(source: THREE.MeshStandardMaterial, unifor
     Object.assign(shader.uniforms, uniforms);
     if (furLayer) shader.uniforms.uLayer = furLayer;
     shader.vertexShader = VERTEX_HEAD + shader.vertexShader.replace('#include <begin_vertex>', VERTEX_BODY);
-    shader.fragmentShader = FRAGMENT_HEAD + shader.fragmentShader.replace('#include <map_fragment>', FRAGMENT_MAP);
+    shader.fragmentShader =
+      FRAGMENT_HEAD +
+      shader.fragmentShader
+        .replace('#include <map_fragment>', FRAGMENT_MAP)
+        // 발바닥 패드는 촉촉하게: 거칠기를 낮춘다
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.4, catPadMask);');
   };
-  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v1' : 'cat-skin-v1');
+  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v2' : 'cat-skin-v2');
   return m;
 }
