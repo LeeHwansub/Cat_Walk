@@ -90,13 +90,17 @@ export class Game {
   private resetting = false;
 
   /** catModel: 불러온 glb 고양이(없으면 이전 도형 모델) */
-  constructor(private readonly container: HTMLElement, catModel: THREE.Object3D | null = null, runMotion: THREE.Object3D | null = null) {
+  constructor(
+    private readonly container: HTMLElement,
+    catModel: THREE.Object3D | null = null,
+    motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null } = {},
+  ) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
     this.map = buildNeighborhood();
     this.stage.scene.add(this.map.group);
 
-    this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel, runMotion) : new ProceduralCatRig(this.save.cat);
+    this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel, motions) : new ProceduralCatRig(this.save.cat);
     this.stage.scene.add(this.rig.root);
     this.ctrl = new CatController(this.map.collision, this.rig.cycleLength, effectiveScale(this.save.cat.stage, this.save.cat.size));
     this.ctrl.girth = girthScale(this.save.cat.build);

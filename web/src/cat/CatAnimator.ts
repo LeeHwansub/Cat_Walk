@@ -75,6 +75,8 @@ export class CatAnimator {
     p.tailWag += (t.tailWag - p.tailWag) * k(2);
     p.pawLift += (t.pawLift - p.pawLift) * k(5);
     p.pawToFace += (t.pawToFace - p.pawToFace) * k(4);
+    p.groom += (t.groom - p.groom) * k(4);
+    p.groomPhase = t.groomPhase;
     p.lick += (t.lick - p.lick) * k(6);
     p.eyesClosed += (t.eyesClosed - p.eyesClosed) * k(t.eyesClosed > p.eyesClosed ? 1.2 : 5);
     const up = input.standingUp;
@@ -236,6 +238,7 @@ export class CatAnimator {
       t.roll = 0;
       t.stretch = 0;
       t.manSit = 0;
+      t.groom = 0;
     }
     const fl = input.floating ?? 0;
     if (fl > 0.01) {
@@ -244,6 +247,7 @@ export class CatAnimator {
       t.lie *= 1 - fl;
       t.speed *= 1 - fl;
       t.pawLift *= 1 - fl;
+      t.groom *= 1 - fl;
       t.tuck *= 1 - fl;
       t.roll *= 1 - fl;
       t.stretch *= 1 - fl;
@@ -257,6 +261,7 @@ export class CatAnimator {
       t.sit = 0;
       t.lie = 0;
       t.pawLift = 0;
+      t.groom = 0;
       t.tuck = 0;
       t.roll = 0;
       t.stretch = 0;
@@ -274,6 +279,9 @@ export class CatAnimator {
     const toFace = smooth(0.5, 0.6, prog);
     t.pawLift = lift;
     t.pawToFace = toFace;
+    // 동작 클립이 있는 모델(glb)은 그루밍 동작(grumming.glb)을 진행 위치에 맞춰 재생한다
+    t.groom = 1;
+    t.groomPhase = prog;
     t.lick = lift * (1 - toFace * 0.6);
     t.headPitch = lerp(0.05, lerp(0.55, 0.2, toFace), lift);
     t.headTilt = toFace * 0.3 * lift;

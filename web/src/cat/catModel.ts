@@ -15,6 +15,19 @@ export async function loadCatModel(url = CAT_MODEL_URL): Promise<THREE.Object3D>
   return gltf.scene;
 }
 
+/** 그루밍 동작 원본 (_box/blender/motion/grumming.glb의 뼈대·동작만 내보냄, CREDITS.md) */
+export const CAT_GROOM_URL = `${import.meta.env.BASE_URL}assets/models/cat-groom.glb`;
+
+/** 동작 파일을 불러온다. 실패하면 null (그 동작은 코드 동작으로 대신) */
+export async function loadMotion(url: string): Promise<THREE.Object3D | null> {
+  try {
+    return await loadCatModel(url);
+  } catch (err) {
+    console.error('동작 파일을 불러오지 못했습니다', url, err);
+    return null;
+  }
+}
+
 /** 달리기 동작을 불러온다. 실패하면 null (달리기는 걷기 동작으로 대신) */
 export async function loadRunMotion(url = CAT_RUN_URL): Promise<THREE.Object3D | null> {
   try {

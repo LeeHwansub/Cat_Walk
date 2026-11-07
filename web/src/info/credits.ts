@@ -67,6 +67,25 @@ export const CREDITS: Credit[] = [
     commercial: 'unconfirmed',
   },
   {
+    id: 'groom-cat',
+    role: '그루밍 동작 (뼈대와 동작만 사용)',
+    name: 'An Animated Cat',
+    author: { name: 'Evil_Katz', url: 'https://sketchfab.com/Evil_Katz' },
+    sourceUrl: 'https://sketchfab.com/3d-models/an-animated-cat-aec25699660043a29595f9572149d1e8',
+    downloadUrl: 'https://sketchfab.com/3d-models/an-animated-cat-aec25699660043a29595f9572149d1e8',
+    license: {
+      name: 'CC BY 4.0 (Creative Commons Attribution)',
+      url: 'https://creativecommons.org/licenses/by/4.0/deed.ko',
+      note: 'Sketchfab 원본 페이지·glb 메타데이터 표기 기준 (2021-02-11 공개)',
+    },
+    files: ['web/public/assets/models/cat-groom.glb'],
+    changes: [
+      '원본 grumming.glb(사용자 제공)를 Blender 5.4로 변환: 메시·텍스처는 빼고 뼈대와 그루밍 동작(6초)만 glb로 내보냄 → cat-groom.glb',
+      '게임 안에서 그루밍 동작을 Toon Cat FREE 뼈대로 옮겨 씀 (뼈 짝짓기, 목·머리는 회전의 50~60%만, 귀는 쓰지 않음, 앉은 높이 보정)',
+    ],
+    commercial: 'unconfirmed',
+  },
+  {
     id: 'black-cat',
     role: '정보 페이지 문의 창의 검은 고양이',
     name: 'Black Cat',

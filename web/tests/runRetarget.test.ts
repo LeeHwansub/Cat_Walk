@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { ClipRetarget, RUN_ALIGN } from '../src/cat/runRetarget';
+import { ClipRetarget, RUN_ALIGN } from '../src/cat/retarget';
 
 /** 원본 뼈 하나('pelvis')와, 원본 앞 방향(+X) 축으로 0 → angle 도는 동작 */
 function source(angle: number, lift = 0): { scene: THREE.Group; clip: THREE.AnimationClip } {
