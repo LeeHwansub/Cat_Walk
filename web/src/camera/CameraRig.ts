@@ -131,7 +131,7 @@ export class CameraRig {
       const diff = Math.atan2(Math.sin(cat.heading - this.yaw), Math.cos(cat.heading - this.yaw));
       this.yaw += diff * (1 - Math.exp(-0.8 * dt));
     }
-    // y: 풍선 이스터 에그로 떠 있을 때의 높이. 카메라도 따라 올라간다
+    // y: 고양이 발 높이(계단·담 위, J-1) + 풍선으로 뜬 높이. 카메라도 따라 올라간다
     const target = this.tmpA.set(cat.x, EYE_HEIGHT * cat.scale + (cat.y ?? 0), cat.z);
     const dir = this.tmpB.set(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
 

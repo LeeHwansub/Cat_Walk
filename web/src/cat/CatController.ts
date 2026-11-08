@@ -1,4 +1,4 @@
-import { resolveCircle, type CollisionWorld } from '../world/collision';
+import { groundAt, resolveCircle, STEP_UP, type CollisionWorld } from '../world/collision';
 
 // 걷기 속도 (m/s, 성체 기준). glb 모델의 걷기 클립 보폭에 맞춰 다리가 너무 빨리 움직이지 않게 낮춤 (2026-11-07 사용자 요청)
 export const WALK_SPEED = 0.45;
@@ -20,6 +20,10 @@ export function runWeight(speed: number, speedScale = 1): number {
 const ACCEL = 1.6;
 const TURN_RATE = 3.2;
 const RADIUS = 0.16;
+/** 턱(STEP_UP 이하)을 오르내릴 때 높이를 따라가는 빠르기 (m/s). 계단 한 칸이 약 0.1초 */
+const STEP_RATE = 1.5;
+/** 중력 가속도 (m/s²) */
+export const GRAVITY = 9.8;
 
 const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -34,6 +38,10 @@ export class CatController {
   speed = 0;
   turnRate = 0;
   gaitPhase = 0;
+  /** 발 높이 (m). 0 = 바닥. 계단·담 위 (J-1, docs/10-jump-plan.md) */
+  y = 0;
+  /** 세로 속도 (m/s, 위 +). 턱보다 큰 높이에서 떨어질 때(점프 착지) 쓴다 */
+  vy = 0;
 
   constructor(
     private readonly world: CollisionWorld,
@@ -124,14 +132,44 @@ export class CatController {
     this.speed += Math.max(-step * 2, Math.min(step, target - this.speed));
   }
 
+  /**
+   * 높이를 땅에 맞춘다: 턱 이하 차이는 STEP_RATE로 따라가고(계단), 그보다 높이 떠 있으면 중력으로 떨어진다.
+   * 평지(땅 0, y 0)에서는 아무것도 바뀌지 않는다
+   */
+  updateVertical(dt: number): void {
+    const g = groundAt(this.world, this.x, this.z, this.y);
+    if (this.vy === 0 && Math.abs(this.y - g) <= STEP_UP + 1e-6) {
+      this.y = g > this.y ? Math.min(g, this.y + STEP_RATE * dt) : Math.max(g, this.y - STEP_RATE * dt);
+      return;
+    }
+    this.vy -= GRAVITY * dt;
+    this.y += this.vy * dt;
+    if (this.y <= g) {
+      this.y = g;
+      this.vy = 0;
+    }
+  }
+
+  /** 이 높이에서 (x, z)로 갈 때 발밑이 턱보다 깊게 꺼지는지 (높은 곳 가장자리) */
+  private dropsAt(x: number, z: number): boolean {
+    return groundAt(this.world, x, z, this.y) < this.y - STEP_UP - 1e-6;
+  }
+
   private advance(dt: number): void {
+    this.updateVertical(dt);
     if (this.speed < 1e-4) {
       this.speed = 0;
       return;
     }
-    const nx = this.x + Math.sin(this.heading) * this.speed * dt;
-    const nz = this.z + Math.cos(this.heading) * this.speed * dt;
-    const r = resolveCircle(this.world, nx, nz, RADIUS * this.scale * Math.sqrt(this.girth));
+    const dx = Math.sin(this.heading) * this.speed * dt;
+    const dz = Math.cos(this.heading) * this.speed * dt;
+    const rad = RADIUS * this.scale * Math.sqrt(this.girth);
+    let r = resolveCircle(this.world, this.x + dx, this.z + dz, rad, this.y);
+    // 높은 곳 가장자리에서는 떨어지지 않는다: 한 축씩 미끄러져 보고, 그래도 안 되면 멈춘다 (내려가려면 점프, J-2)
+    if (this.y > 0 && this.dropsAt(r.x, r.z)) {
+      const tries = [resolveCircle(this.world, this.x + dx, this.z, rad, this.y), resolveCircle(this.world, this.x, this.z + dz, rad, this.y)];
+      r = tries.find((t) => !this.dropsAt(t.x, t.z)) ?? { x: this.x, z: this.z };
+    }
     const moved = Math.hypot(r.x - this.x, r.z - this.z);
     this.x = r.x;
     this.z = r.z;

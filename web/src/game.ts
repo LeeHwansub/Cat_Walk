@@ -287,7 +287,7 @@ export class Game {
     if (this.eating) animBehavior = this.eating.seq.animBehavior;
     else if (this.mode === 'manual' && this.phase === 'play') animBehavior = 'idle';
     else if (b.id === 'eat') animBehavior = 'idle';
-    const view = { x: this.ctrl.x, z: this.ctrl.z, heading: this.ctrl.heading, eyeY: this.floatHeight + 0.25 * this.ctrl.scale };
+    const view = { x: this.ctrl.x, z: this.ctrl.z, heading: this.ctrl.heading, eyeY: this.ctrl.y + this.floatHeight + 0.25 * this.ctrl.scale };
     const lookAt = this.gazePicker.update(now, view, this.gazePoints);
     const pose = this.animator.update(
       {
@@ -305,13 +305,14 @@ export class Game {
       dt,
     );
     if (this.rig.cycleLengthAt) this.ctrl.cycleLength = this.rig.cycleLengthAt(pose.run);
-    this.rig.root.position.set(this.ctrl.x, this.floatHeight, this.ctrl.z);
+    // 높이 = 땅·계단·담 위 높이(J-1) + 풍선으로 뜬 높이
+    this.rig.root.position.set(this.ctrl.x, this.ctrl.y + this.floatHeight, this.ctrl.z);
     this.rig.root.rotation.y = this.ctrl.heading;
     this.rig.setFirstPerson?.(this.cam.mode === 'cat');
     this.rig.setBodyFade?.(this.cam.bodyFade);
     this.rig.apply(pose, now);
 
-    this.cam.update(dt, now, { x: this.ctrl.x, y: this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
+    this.cam.update(dt, now, { x: this.ctrl.x, y: this.ctrl.y + this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
     this.stage.followSun(this.ctrl.x, this.ctrl.z);
     this.audio.update(dt);
     this.stage.renderer.render(this.stage.scene, this.cam.active);
@@ -568,7 +569,7 @@ export class Game {
 
   /** 지금 자리에서 직선으로 막힘없이 갈 수 있고, 막혔던 방향이 아닌 목표인지 */
   private reachable(x: number, z: number): boolean {
-    return !this.towardBlocked(x, z) && pathClear(this.map.collision, this.ctrl.x, this.ctrl.z, x, z, 0.18 * this.ctrl.scale);
+    return !this.towardBlocked(x, z) && pathClear(this.map.collision, this.ctrl.x, this.ctrl.z, x, z, 0.18 * this.ctrl.scale, this.ctrl.y);
   }
 
   /** 1.5초 동안 거의 못 움직였으면 장애물에 막힌 것 */
