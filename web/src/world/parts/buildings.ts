@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { brickTexture, facadeTexture } from '../textures';
+import { facadeDetails, mailbox, roofRail } from './details';
 import type { MapKit } from './kit';
 
 /**
@@ -32,8 +33,18 @@ export function wall(k: MapKit, minX: number, maxX: number, f: Frontage, gaps: [
   }
 }
 
-/** 담장 안쪽에 앉은 건물 덩어리 + 옥상 방수 페인트 */
-export function building(k: MapKit, minX: number, maxX: number, f: Frontage, height: number, depth: number, mat: THREE.Material): void {
+/** 외벽 텍스처 한 장의 크기 (창 위치 계산용)와 디테일 선택 */
+export interface FacadeLayout {
+  tileW: number;
+  tileH: number;
+  /** 벽돌: 텍스처에 창이 없어 창을 입체로 붙인다 */
+  glass?: boolean;
+  /** 옥상 난간 */
+  rail?: boolean;
+}
+
+/** 담장 안쪽에 앉은 건물 덩어리 + 옥상 방수 페인트 (+ 외벽 디테일) */
+export function building(k: MapKit, minX: number, maxX: number, f: Frontage, height: number, depth: number, mat: THREE.Material, layout?: FacadeLayout): void {
   const front = (f.wallZ + 0.6) * f.side;
   const back = front + depth * f.side;
   const z0 = Math.min(front, back);
@@ -43,6 +54,11 @@ export function building(k: MapKit, minX: number, maxX: number, f: Frontage, hei
   k.solidRect(minX, maxX, z0, z1);
   // 옥상 방수 페인트 (초록) — 한국 주택 옥상의 흔한 모습
   k.box(maxX - minX - 0.2, 0.05, z1 - z0 - 0.2, k.mat('#5f8f6a'), (minX + maxX) / 2, height + 0.03, (z0 + z1) / 2, false);
+  if (layout) {
+    const out = -f.side as 1 | -1; // 길 쪽 면이 바라보는 방향
+    facadeDetails(k, { minX, maxX, faceZ: front, out, height, tileW: layout.tileW, tileH: layout.tileH, glass: layout.glass });
+    if (layout.rail) roofRail(k, minX, maxX, front, out, height);
+  }
 }
 
 /** 빌라: 벽돌 또는 색 외벽, 담장에 대문 하나 */
@@ -51,8 +67,12 @@ export function villa(k: MapKit, minX: number, maxX: number, f: Frontage, height
   const w = maxX - minX;
   tex.repeat.set(w / 3, height / 3);
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
-  building(k, minX + 0.3, maxX - 0.3, f, height, 8, mat);
-  wall(k, minX, maxX, f, [[minX + w * 0.35, minX + w * 0.35 + 1.4]]);
+  const bw = w - 0.6;
+  building(k, minX + 0.3, maxX - 0.3, f, height, 8, mat, { tileW: bw / (w / 3), tileH: 3, glass: color === 'brick', rail: true });
+  const gate = minX + w * 0.35;
+  wall(k, minX, maxX, f, [[gate, gate + 1.4]]);
+  // 대문 옆 집합 우편함 (담의 길 쪽 면)
+  mailbox(k, gate + 1.4 + 0.4, (f.wallZ - 0.1) * f.side, -f.side as 1 | -1);
 }
 
 /** 단독주택 */
@@ -60,7 +80,8 @@ export function house(k: MapKit, minX: number, maxX: number, f: Frontage, height
   const tex = facadeTexture(color, '#f4f0e6');
   tex.repeat.set((maxX - minX) / 3.2, 1.3);
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
-  building(k, minX + 0.6, maxX - 0.6, f, height, 7, mat);
+  const bw = maxX - minX - 1.2;
+  building(k, minX + 0.6, maxX - 0.6, f, height, 7, mat, { tileW: bw / ((maxX - minX) / 3.2), tileH: height / 1.3 });
   wall(k, minX, maxX, f, []);
 }
 
@@ -76,6 +97,7 @@ export function shop(k: MapKit, minX: number, maxX: number, f: Frontage): void {
   const m = k.box(maxX - minX, 3.6, z1 - z0, mat, (minX + maxX) / 2, 1.8, (z0 + z1) / 2);
   k.occluders.push(m);
   k.solidRect(minX, maxX, z0, z1);
+  facadeDetails(k, { minX, maxX, faceZ: front, out: -f.side as 1 | -1, height: 3.6, tileW: 3, tileH: 3, ac: false });
   const awning = k.box(maxX - minX - 0.4, 0.08, 1.0, k.mat('#3d7a5a'), (minX + maxX) / 2, 2.6, front - 0.45 * f.side);
   awning.rotation.x = 0.25 * f.side;
 }

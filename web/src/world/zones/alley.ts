@@ -3,6 +3,7 @@ import { range } from '../../core/rng';
 import type { Rect } from '../collision';
 import { house, shop, villa, type Frontage } from '../parts/buildings';
 import type { MapKit } from '../parts/kit';
+import { groundAcUnit, styroGarden, transformer, wire } from '../parts/details';
 import { car, feedingShelter, pole, pot, weeds } from '../parts/props';
 import { asphaltTexture } from '../textures';
 
@@ -45,7 +46,27 @@ export function buildAlley(k: MapKit, bounds: Rect): AlleyResult {
   for (const x of [-16.5, -7]) pole(k, x, -2.75);
   for (const [x, z] of [[-24, 2.95], [-20.4, 2.95], [-13, 2.95], [-11.9, 2.95], [-6, 2.95], [-17.5, -2.95], [-14, -2.95], [-3, -2.95], [-0.5, -2.95]] as const) pot(k, x, z);
   for (const [x, z] of [[-10, 2.85], [-23, -2.9], [-1.5, -2.9]] as const) weeds(k, x, z);
+  utilityLines(k);
+  styroGarden(k, -7.6, 2.95);
+  styroGarden(k, -15.5, -2.95);
   return { foodStation: { x: 3.0, z: 2.75 } };
+}
+
+/** 전선: 같은 쪽 전봇대끼리, 길 건너 지그재그, 건물로 들어가는 인입선. 변압기 하나 (3-1) */
+function utilityLines(k: MapKit): void {
+  const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const north = [-22, -12.5, -2.5];
+  const south = [-16.5, -7];
+  for (const y of [7.3, 7.0]) {
+    for (let i = 0; i + 1 < north.length; i++) wire(k, V(north[i], y, 2.75), V(north[i + 1], y, 2.75), 0.35);
+    wire(k, V(south[0], y, -2.75), V(south[1], y, -2.75), 0.3);
+  }
+  wire(k, V(-12.5, 7.3, 2.75), V(-16.5, 7.3, -2.75), 0.3);
+  wire(k, V(-2.5, 7.3, 2.75), V(-7, 7.3, -2.75), 0.3);
+  // 인입선: 전봇대에서 건물 외벽으로
+  wire(k, V(-12.5, 6.8, 2.75), V(-9.5, 6.0, 3.9), 0.15);
+  wire(k, V(-7, 6.8, -2.75), V(-4.5, 6.2, -3.9), 0.15);
+  transformer(k, -12.5, 2.75, 1);
 }
 
 /** 먹이 쉼터 (공원 다음에 만든다: 원래 배치 순서 유지) */
@@ -99,6 +120,7 @@ function parkingLot(k: MapKit, minX: number, maxX: number, b: Rect): void {
   for (let x = minX + 0.2; x <= maxX; x += 2.6) k.flat(0.1, 5, white, x, -8.5);
   car(k, minX + 1.5, -8.5, '#c9c9c9', Math.PI / 2);
   car(k, minX + 4.1, -8.6, '#7a2d2d', Math.PI / 2);
+  groundAcUnit(k, maxX - 0.6, -4.6, 1);
   k.box(maxX - minX, 1.5, 0.2, k.mat('#b9b2a6'), (minX + maxX) / 2, 0.75, b.minZ + 0.1);
   k.interests.push({ kind: 'sunspot', x: maxX - 1, z: -5, r: 0.8 });
   weeds(k, maxX - 0.4, -11.5);
@@ -117,5 +139,6 @@ function emptyLot(k: MapKit, minX: number, maxX: number): void {
   k.group.add(g);
   for (let i = 0; i < 6; i++) weeds(k, range(k.rng, minX + 0.5, maxX - 0.5), range(k.rng, -8, -3.8));
   k.occluders.push(k.box(maxX - minX, 1.3, 0.2, k.mat('#b9b2a6'), (minX + maxX) / 2, 0.65, -8.5));
+  groundAcUnit(k, maxX - 0.7, -8.1, 1);
   k.solidRect(minX, maxX, -8.6, -8.4);
 }

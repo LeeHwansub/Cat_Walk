@@ -88,3 +88,21 @@ export function brickTexture(base = '#9a5a45'): THREE.CanvasTexture {
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
 }
+
+/** 빗물 자국: 위는 진하고 아래로 갈수록 옅어지는 세로 줄무늬 (투명) */
+export function rainStreakTexture(): THREE.CanvasTexture {
+  return canvasTexture(64, 128, (g) => {
+    g.clearRect(0, 0, 64, 128);
+    const rng = createRng(7);
+    for (let i = 0; i < 14; i++) {
+      const x = rng() * 64;
+      const w = 2 + rng() * 6;
+      const len = 50 + rng() * 78;
+      const grad = g.createLinearGradient(0, 0, 0, len);
+      grad.addColorStop(0, 'rgba(60,55,48,0.32)');
+      grad.addColorStop(1, 'rgba(60,55,48,0)');
+      g.fillStyle = grad;
+      g.fillRect(x, 0, w, len);
+    }
+  });
+}
