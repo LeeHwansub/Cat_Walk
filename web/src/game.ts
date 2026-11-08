@@ -21,7 +21,7 @@ import { EatingSequence } from './systems/eating';
 import { FoodBowl } from './systems/food';
 import { feed, tickHunger, type ActivityState } from './systems/hunger';
 import { Resident } from './systems/npc';
-import { isFree } from './world/collision';
+import { isFree, pathClear } from './world/collision';
 import { buildNeighborhood, type Interest, type Neighborhood } from './world/map/neighborhood';
 import { Stage } from './world/scene';
 
@@ -82,6 +82,8 @@ export class Game {
   private floatHeight = 0;
   private wasBalloon = false;
   private progressCheck = { at: 0, x: 0, z: 0 };
+  /** 최근에 막힌 시각과 그때 바라보던 방향 (자동 모드에서 같은 쪽으로 다시 가지 않게) */
+  private blocked: { at: number; heading: number } | null = null;
   private petUntil = 0;
   private userBowlHideAt = -1;
   private saveTimer = 0;
@@ -411,7 +413,8 @@ export class Game {
         if (!this.walkTarget) this.walkTarget = this.pickWalkTarget();
         if (this.brain.current.id !== 'walk') break; // 배고파서 먹기로 바뀐 경우
         const arrived = this.ctrl.walkTo(this.walkTarget.x, this.walkTarget.z, dt);
-        if (arrived || this.isStuck(now)) this.finishBehavior(now);
+        if (arrived) this.finishBehavior(now);
+        else if (this.isStuck(now)) this.reactToBlock(now);
         break;
       }
       case 'eat':
@@ -543,6 +546,31 @@ export class Game {
     this.eating = null;
   }
 
+  /**
+   * 걷다가 막혔을 때 (목표는 막힘없는 곳만 고르지만, 움직이는 물체 등으로 막힐 수 있다):
+   * 그 자리에서 앞의 벽 냄새를 잠깐 맡고, 다음에 걸을 곳은 막힌 방향을 피해 고른다 (사용자 결정 2026-11-08)
+   */
+  private reactToBlock(now: number): void {
+    this.blocked = { at: now, heading: this.ctrl.heading };
+    this.walkTarget = null;
+    this.onBehaviorEnd('walk');
+    this.brain.interrupt('sniff', 1.6, now);
+    this.sniffTarget = { x: this.ctrl.x + Math.sin(this.ctrl.heading) * 0.5, z: this.ctrl.z + Math.cos(this.ctrl.heading) * 0.5 };
+    this.progressCheck = { at: now, x: this.ctrl.x, z: this.ctrl.z };
+  }
+
+  /** 최근(10초 안)에 막혔던 방향(±60°)으로 가는 목표인지 */
+  private towardBlocked(x: number, z: number): boolean {
+    if (!this.blocked || this.time - this.blocked.at > 10) return false;
+    const a = Math.atan2(x - this.ctrl.x, z - this.ctrl.z);
+    return Math.abs(Math.atan2(Math.sin(a - this.blocked.heading), Math.cos(a - this.blocked.heading))) < Math.PI / 3;
+  }
+
+  /** 지금 자리에서 직선으로 막힘없이 갈 수 있고, 막혔던 방향이 아닌 목표인지 */
+  private reachable(x: number, z: number): boolean {
+    return !this.towardBlocked(x, z) && pathClear(this.map.collision, this.ctrl.x, this.ctrl.z, x, z, 0.18 * this.ctrl.scale);
+  }
+
   /** 1.5초 동안 거의 못 움직였으면 장애물에 막힌 것 */
   private isStuck(now: number): boolean {
     if (now - this.progressCheck.at < 1.5) return false;
@@ -577,7 +605,7 @@ export class Game {
       const d = 1.5 + this.rng() * 5;
       const x = cx + Math.sin(a) * d;
       const z = cz + Math.cos(a) * d;
-      if (isFree(this.map.collision, x, z, 0.25)) return { x, z };
+      if (isFree(this.map.collision, x, z, 0.25) && this.reachable(x, z)) return { x, z };
     }
     return { x: cx, z: cz };
   }
@@ -589,7 +617,7 @@ export class Game {
       const a = base + off;
       const x = it.x + Math.sin(a) * it.r * 0.8;
       const z = it.z + Math.cos(a) * it.r * 0.8;
-      if (isFree(this.map.collision, x, z, 0.2)) return { x, z };
+      if (isFree(this.map.collision, x, z, 0.2) && this.reachable(x, z)) return { x, z };
     }
     return null;
   }

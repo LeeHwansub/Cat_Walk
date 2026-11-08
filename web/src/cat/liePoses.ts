@@ -1,12 +1,12 @@
 /**
- * 누운 자세 (배 보이기·옆으로 눕기). Blender에서 cat.glb 뼈대로 자세를 잡아
+ * 누운 자세 (배 보이기·옆으로 눕기·식빵·낮잠·꼬리 감기). Blender에서 cat.glb 뼈대로 자세를 잡아
  * 뼈대·자세만 cat-poses.glb로 내보냈다 (2026-11-07, D-44). 코드로 몸통만 굴리던 자세가
  * 목이 꺾이고 다리가 막대처럼 뻗어 어색했다.
  */
 export const CAT_POSES_FILE = 'cat-poses.glb';
 
-/** 파일 안 동작 이름 = 자세 값 이름 (CatPose.bellyUp, CatPose.sideLie) */
-export const LIE_POSES = ['bellyUp', 'sideLie'] as const;
+/** 파일 안 동작 이름 = 자세 값 이름 (CatPose의 같은 이름). 식빵·낮잠·꼬리 감기는 2026-11-08 추가 (다리가 몸 밑에 묻혀 보이던 것) */
+export const LIE_POSES = ['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose'] as const;
 export type LiePose = (typeof LIE_POSES)[number];
 
 /** 자세에 쓰는 뼈. 꼬리·귀·눈·입은 넣지 않는다 (꼬리 흔들기·귀 움찔·눈 깜빡임은 코드가 계속 한다) */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isFree, resolveCircle, type CollisionWorld } from '../src/world/collision';
+import { isFree, pathClear, resolveCircle, type CollisionWorld } from '../src/world/collision';
 
 const world: CollisionWorld = {
   bounds: { minX: -10, maxX: 10, minZ: -10, maxZ: 10 },
@@ -35,5 +35,20 @@ describe('collision', () => {
   it('isFree는 겹침 여부를 알려 준다', () => {
     expect(isFree(world, 1, 1, 0.1)).toBe(false);
     expect(isFree(world, 5, 5, 0.1)).toBe(true);
+  });
+
+  it('pathClear: 사이에 벽이 없으면 갈 수 있다', () => {
+    expect(pathClear(world, -2, 0, -1, 0.5, 0.2)).toBe(true);
+  });
+
+  it('pathClear: 가는 길에 벽(사각형)이 있으면 막힌다 (도착점은 비어 있어도)', () => {
+    expect(isFree(world, 3, 0, 0.2)).toBe(true);
+    expect(pathClear(world, -3, 0, 3, 0, 0.2)).toBe(false);
+  });
+
+  it('pathClear: 고양이 반지름만큼 벽 모서리를 스치는 길도 막힌 것으로 본다', () => {
+    // 사각형 위쪽 변은 z = 2: 2.1을 지나면 반지름 0.2 안으로 스치고, 2.5는 비켜 간다
+    expect(pathClear(world, -3, 2.1, 3, 2.1, 0.2)).toBe(false);
+    expect(pathClear(world, -3, 2.5, 3, 2.5, 0.2)).toBe(true);
   });
 });

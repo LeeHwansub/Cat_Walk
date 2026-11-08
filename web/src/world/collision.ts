@@ -78,3 +78,16 @@ export function isFree(world: CollisionWorld, x: number, z: number, r: number): 
   }
   return true;
 }
+
+/**
+ * a에서 b까지 반지름 r인 고양이가 직선으로 막힘없이 갈 수 있는지 (step 간격으로 확인).
+ * 자동 모드가 벽 너머를 목표로 골라 벽에 붙어 미끄러지던 것을 막는다 (2026-11-08)
+ */
+export function pathClear(world: CollisionWorld, ax: number, az: number, bx: number, bz: number, r: number, step = 0.1): boolean {
+  const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / step));
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    if (!isFree(world, ax + (bx - ax) * t, az + (bz - az) * t, r)) return false;
+  }
+  return true;
+}

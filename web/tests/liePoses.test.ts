@@ -16,6 +16,10 @@ function run(a: CatAnimator, over: Partial<AnimInput>, seconds: number) {
 }
 
 describe('누운 자세 (Blender로 만든 cat-poses.glb)', () => {
+  it('자세 다섯 개: 배 보이기·옆으로 눕기·식빵·낮잠·꼬리 감기', () => {
+    expect([...LIE_POSES]).toEqual(['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose']);
+  });
+
   it('배 보이기 중에는 배 보이기 자세 비율이 1로 올라간다', () => {
     const p = run(new CatAnimator(), { behavior: 'bellyUp', progress: 0.5 }, 3);
     expect(p.bellyUp).toBeGreaterThan(0.95);
@@ -26,6 +30,14 @@ describe('누운 자세 (Blender로 만든 cat-poses.glb)', () => {
     const p = run(new CatAnimator(), { behavior: 'sideLie', progress: 0.5 }, 3);
     expect(p.sideLie).toBeGreaterThan(0.95);
     expect(p.bellyUp).toBeLessThan(0.05);
+  });
+
+  it('식빵·낮잠·꼬리 감기는 각자 자세 비율이 1로 올라간다 (다리를 몸 밑에 묻지 않게 Blender 자세로)', () => {
+    for (const [behavior, field] of [['loaf', 'loafPose'], ['nap', 'napPose'], ['tailWrap', 'wrapPose']] as const) {
+      const p = run(new CatAnimator(), { behavior, progress: 0.5 }, 3);
+      expect(p[field], behavior).toBeGreaterThan(0.95);
+      for (const other of ['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose'] as const) if (other !== field) expect(p[other], `${behavior} ${other}`).toBeLessThan(0.05);
+    }
   });
 
   it('다른 행동으로 바뀌면 다시 0으로 내려간다', () => {

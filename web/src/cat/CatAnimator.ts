@@ -79,6 +79,9 @@ export class CatAnimator {
     p.groomPhase = t.groomPhase;
     p.bellyUp += (t.bellyUp - p.bellyUp) * k(3);
     p.sideLie += (t.sideLie - p.sideLie) * k(3);
+    p.loafPose += (t.loafPose - p.loafPose) * k(3);
+    p.napPose += (t.napPose - p.napPose) * k(3);
+    p.wrapPose += (t.wrapPose - p.wrapPose) * k(3);
     p.lick += (t.lick - p.lick) * k(6);
     p.eyesClosed += (t.eyesClosed - p.eyesClosed) * k(t.eyesClosed > p.eyesClosed ? 1.2 : 5);
     const up = input.standingUp;
@@ -131,6 +134,7 @@ export class CatAnimator {
         break;
       case 'nap':
         t.lie = 1;
+        t.napPose = 1; // 자세 파일이 있으면 Blender로 만든 낮잠 자세
         t.tailUp = 0;
         t.tailWag = 0.02;
         t.headPitch = 0.35;
@@ -148,6 +152,7 @@ export class CatAnimator {
         // 식빵: 앞발을 가슴 아래로 접어 넣고 반쯤 눈을 감는다
         t.lie = 1;
         t.tuck = 1;
+        t.loafPose = 1; // 자세 파일이 있으면 Blender로 만든 식빵 자세
         t.tailUp = 0;
         t.tailWag = 0.04;
         t.headPitch = 0.05;
@@ -189,6 +194,7 @@ export class CatAnimator {
         t.lie = 1;
         t.tuck = 0.6;
         t.tailWrap = 1;
+        t.wrapPose = 1; // 자세 파일이 있으면 Blender로 만든 꼬리 감기 자세
         t.tailUp = 0;
         t.tailWag = 0.03;
         t.headPitch = 0.3;
@@ -245,6 +251,9 @@ export class CatAnimator {
       t.groom = 0;
       t.bellyUp = 0;
       t.sideLie = 0;
+      t.loafPose = 0;
+      t.napPose = 0;
+      t.wrapPose = 0;
     }
     const fl = input.floating ?? 0;
     if (fl > 0.01) {
@@ -256,6 +265,9 @@ export class CatAnimator {
       t.groom *= 1 - fl;
       t.bellyUp *= 1 - fl;
       t.sideLie *= 1 - fl;
+      t.loafPose *= 1 - fl;
+      t.napPose *= 1 - fl;
+      t.wrapPose *= 1 - fl;
       t.tuck *= 1 - fl;
       t.roll *= 1 - fl;
       t.stretch *= 1 - fl;
@@ -272,6 +284,9 @@ export class CatAnimator {
       t.groom = 0;
       t.bellyUp = 0;
       t.sideLie = 0;
+      t.loafPose = 0;
+      t.napPose = 0;
+      t.wrapPose = 0;
       t.tuck = 0;
       t.roll = 0;
       t.stretch = 0;

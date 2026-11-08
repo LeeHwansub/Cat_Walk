@@ -64,6 +64,22 @@ def rot(arm, name, axis, deg):
     pb.matrix = Matrix.Translation(h) @ R @ Matrix.Translation(-h) @ M
     bpy.context.view_layer.update()
 
+def side_angle(v):
+    """고양이 옆에서 본 방향 각도 (도): 0 = 앞, 90 = 위, -90 = 아래, ±180 = 뒤"""
+    return math.degrees(math.atan2(v.dot(FRAME['U']), v.dot(FRAME['F'])))
+
+def aim(arm, chain, dirs):
+    """다리 뼈를 옆에서 본 목표 방향(dirs, 도)으로 향하게 한다. 부모 먼저.
+    L축 둘레 +각도는 옆에서 볼 때 시계 방향(각도가 줄어듦)이라, 지금 각도 - 목표 각도만큼 돌린다"""
+    for name, want in zip(chain, dirs):
+        if want is None:
+            continue
+        pb = P(arm, name)
+        v = pb.matrix.to_3x3() @ Vector((0, pb.length, 0))
+        cur = side_angle(v)
+        d = (cur - want + 180) % 360 - 180
+        rot(arm, name, FRAME['L'], d)
+
 def axis_of(arm, name, local=(0, 1, 0)):
     """뼈의 로컬 축을 아마추어 공간 방향으로"""
     return (P(arm, name).matrix.to_3x3() @ Vector(local)).normalized()

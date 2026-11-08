@@ -51,6 +51,12 @@ export interface CatPose {
   bellyUp: number;
   /** 0 ~ 1 옆으로 눕기 자세 비율 */
   sideLie: number;
+  /** 0 ~ 1 식빵 자세 비율 (Blender 자세) */
+  loafPose: number;
+  /** 0 ~ 1 낮잠 자세 비율 (Blender 자세) */
+  napPose: number;
+  /** 0 ~ 1 꼬리 감고 엎드리기 자세 비율 (Blender 자세. 꼬리 감기 정도는 tailWrap) */
+  wrapPose: number;
   /** 눈동자 좌우 (고개로 다 못 돌린 시선, + 왼쪽) */
   eyeYaw: number;
   /** 눈동자 위아래 (+ 아래) */
@@ -83,6 +89,9 @@ export function neutralPose(): CatPose {
     groomPhase: 0,
     bellyUp: 0,
     sideLie: 0,
+    loafPose: 0,
+    napPose: 0,
+    wrapPose: 0,
     eyeYaw: 0,
     eyePitch: 0,
   };

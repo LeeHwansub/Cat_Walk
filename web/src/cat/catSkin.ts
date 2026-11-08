@@ -283,16 +283,24 @@ vec3 catPadColor(vec3 p, vec3 fur) {
   return mix(between, col, pad);
 }
 
-/** 눈: 원본은 검은 원. 홍채 색 + 세로 동공 + 하이라이트 */
+/**
+ * 눈: 원본은 검은 원. 홍채 색 + 크고 동그란 동공 + 반짝임 두 개.
+ * 가는 세로 동공은 날카롭고 무서워 보여(사용자 2026-11-08) 편안한 고양이의 동그란 동공으로 바꿨다
+ */
 vec3 catEyeColor(vec3 p) {
   vec2 q = vec2(abs(p.x) - 0.345, p.y - 2.857) / 0.115;
   float r = length(q);
-  vec3 iris = uEye * mix(1.1, 0.55, smoothstep(0.35, 1.0, r));
-  float pupil = 1.0 - smoothstep(0.85, 1.0, length(q * vec2(3.4, 1.05)));
-  vec3 c = mix(iris, vec3(0.01), pupil);
-  c = mix(c, vec3(0.02), smoothstep(0.88, 1.0, r)); // 테두리
-  float glint = 1.0 - smoothstep(0.1, 0.16, length(q - vec2(sign(p.x) * 0.3, 0.38)));
-  return mix(c, vec3(1.6), glint);
+  // 홍채: 원래 색을 조금 차분하게, 가운데는 밝고 가장자리로 갈수록 어둡게
+  vec3 eye = mix(uEye, vec3(dot(uEye, vec3(0.2126, 0.7152, 0.0722))), 0.15);
+  vec3 iris = eye * mix(1.05, 0.5, smoothstep(0.3, 1.0, r));
+  // 동공: 크고 동그랗게 (살짝 세로로 긴 원)
+  float pupil = 1.0 - smoothstep(0.56, 0.64, length(q * vec2(1.0, 0.92)));
+  vec3 c = mix(iris, vec3(0.012), pupil);
+  c = mix(c, vec3(0.03), smoothstep(0.86, 1.0, r)); // 테두리
+  // 반짝임: 위쪽 큰 것 하나, 아래쪽 작은 것 하나
+  float g1 = 1.0 - smoothstep(0.14, 0.2, length(q - vec2(sign(p.x) * 0.26, 0.3)));
+  float g2 = 1.0 - smoothstep(0.05, 0.09, length(q - vec2(-sign(p.x) * 0.22, -0.3)));
+  return mix(c, vec3(1.6), max(g1, g2 * 0.85));
 }
 `;
 
@@ -357,6 +365,6 @@ export function createCatSkinMaterial(source: THREE.MeshStandardMaterial, unifor
         // 발바닥 패드는 촉촉하게: 거칠기를 낮춘다
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.4, catPadMask);');
   };
-  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v5' : 'cat-skin-v5');
+  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v6' : 'cat-skin-v6');
   return m;
 }

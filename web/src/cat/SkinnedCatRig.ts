@@ -10,6 +10,7 @@ import { ClipRetarget, GROOM_BONE_MAP, RUN_BONE_MAP, type BoneMapEntry } from '.
 import { ClipSampler } from './clipSampler';
 import { LIE_POSE_BONES, LIE_POSES, type LiePose } from './liePoses';
 import { balloonRound, floatPawTarget } from './balloonPose';
+import { tongueOut } from './tongue';
 
 /**
  * 뼈대가 있는 glb 고양이 모델 (사용자 제공 캐릭터.glb = Sketchfab "Toon Cat FREE", CC BY 4.0).
@@ -119,6 +120,8 @@ export class SkinnedCatRig implements CatRig {
   private readonly m4 = new THREE.Matrix4();
   private readonly rootInv = new THREE.Matrix4();
   private readonly collar = new THREE.Group();
+  /** 혀: 턱 뼈에 붙어 핥을 때 내밀었다 넣는다 */
+  private readonly tongue = new THREE.Group();
   private hasCollar = false;
   /** 목걸이 위치: 가슴(척추 2)과 머리 뼈 기준 오프셋. 매 프레임 둘 사이(머리 쪽 60%)에 둔다 */
   private readonly collarFromSpine = new THREE.Matrix4();
@@ -316,6 +319,7 @@ export class SkinnedCatRig implements CatRig {
       if (motion) this.liePoses.push({ name, motion });
     }
     this.buildCollar();
+    this.buildTongue();
     // 캣캠: 눈 위치(머리는 캣캠 중 숨김). 가슴 뼈에 두면 달릴 때 어깨가 솟고 머리가 앞으로 나가
     // 카메라가 어깨 뒤에 갇혀 화면 아래를 가렸다 (2026-11-07). 목 뼈에 붙여 머리를 따라가게 한다
     // (머리 뼈는 1인칭에서 크기를 줄이므로 쓰지 않는다)
@@ -404,6 +408,10 @@ export class SkinnedCatRig implements CatRig {
     // 1인칭: 카메라 바로 앞 몸 표면은 숨긴다 (달릴 때 시야를 가리던 목·어깨)
     this.uniforms.uNearCut.value = bodyNearCut(this.firstPerson, this.root.getWorldScale(this.v2).x);
     this.setRel(this.mouth, this.q1.setFromEuler(this.euler.set(Math.max(0, Math.sin(time * 18)) * 0.25 * p.lick, 0, 0)));
+    // 혀: 핥을 때(그루밍·밥 먹기·입맛 다시기) 리듬에 맞춰 내밀었다 넣는다. 1인칭에서는 머리를 숨기므로 숨김
+    const out = this.firstPerson ? 0 : tongueOut(p.lick, time);
+    this.tongue.visible = out > 0.02;
+    this.tongue.scale.set(0.7 + 0.3 * out, 1, Math.max(0.01, out));
 
     this.updateEyes(p, time);
     this.updateEars(time, dt);
@@ -470,7 +478,7 @@ export class SkinnedCatRig implements CatRig {
       this.model.position.y -= (low - 0.004) * w;
       this.root.updateMatrixWorld(true);
     }
-    this.updateCollar(Math.max(p.bellyUp, p.sideLie));
+    this.updateCollar(Math.max(p.bellyUp, p.sideLie, p.loafPose, p.napPose, p.wrapPose));
   }
 
   /**
@@ -667,6 +675,19 @@ export class SkinnedCatRig implements CatRig {
     const target = new THREE.Matrix4().compose(at, new THREE.Quaternion().setFromEuler(new THREE.Euler(rotX, 0, 0)), new THREE.Vector3(1, 1, 1).multiplyScalar(1 / MODEL_SCALE));
     boneInModel.invert().multiply(target).decompose(holder.position, holder.quaternion, holder.scale);
     holder.add(obj);
+  }
+
+  /** 혀: 입 아래쪽에서 앞으로 나오는 분홍색 납작한 타원. 길이 방향(+z)으로 늘였다 줄인다 */
+  private buildTongue(): void {
+    const geo = new THREE.SphereGeometry(0.5, 16, 10);
+    geo.scale(0.016, 0.005, 0.032); // m (성체): 폭 1.6cm, 두께 0.5cm, 길이 3.2cm
+    geo.translate(0, 0, 0.012); // 뿌리를 원점에: 길이 방향으로만 늘어나게
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: '#e8838f', roughness: 0.32 }));
+    mesh.castShadow = false;
+    this.tongue.add(mesh);
+    this.tongue.visible = false;
+    // 입 아래쪽 (주둥이·입 정점 분석: 높이 2.35~2.51, 앞 끝 2.35 모델 단위), 살짝 아래로 기울여
+    this.attachToBone(this.tongue, this.mouth, new THREE.Vector3(0, 2.36, 2.2), 0.45);
   }
 
   /** 분홍 목걸이 + 하트 태그 (뽀리) */

@@ -52,7 +52,45 @@ def side(arm):
         rot(arm, ft, L, -20)
         if top: rot(arm, th, F, 12)
 
-POSES = [('bellyUp', belly), ('sideLie', side)]
+# 다리는 aim()으로 옆에서 본 뼈 방향(도: 0 앞, -90 아래, ±180 뒤)을 정한다. 뼈 순서는 위에서 아래로
+LOAF_FRONT = (-150, -8, 0)          # 팔꿈치는 뒤로 낮게, 앞발은 가슴 밑에서 앞으로 접음
+LOAF_BACK = (-35, -150, -5, 0)      # 허벅지 앞으로, 정강이 뒤로, 발등은 바닥을 따라 앞으로
+NAP_FRONT = (-45, -12, -4)          # 앞다리를 앞으로 뻗어 바닥에
+
+def legs(arm, front, back):
+    for s, up, lo, ft in FRONT:
+        aim(arm, (up, lo, ft), front)
+    for s, th, up, lo, ft in BACK:
+        aim(arm, (th, up, lo, ft), back)
+
+def loaf(arm):
+    # 식빵: 몸은 수평으로 낮게, 앞발은 가슴 밑으로 접어 넣고, 뒷다리는 엉덩이 밑에 접는다
+    rot(arm, 'neck_017', L, 12)
+    rot(arm, 'head_018', L, -8)
+    legs(arm, LOAF_FRONT, LOAF_BACK)
+
+def nap(arm):
+    # 낮잠: 엎드려 앞발을 앞으로 뻗고, 그 위에 고개를 숙여 기댄다. 몸은 살짝 옆으로 기울임
+    legs(arm, NAP_FRONT, LOAF_BACK)
+    rot(arm, 'neck_017', L, 30)
+    rot(arm, 'head_018', L, 15)
+    rot(arm, 'head_018', F, -10)
+    rot(arm, 'torso_02', F, 12)
+
+def tailwrap(arm):
+    # 꼬리 감고 엎드리기: 몸을 둥글게 말고 머리를 꼬리 쪽으로 돌려 묻는다 (꼬리는 코드가 감는다)
+    legs(arm, LOAF_FRONT, LOAF_BACK)
+    rot(arm, 'spine.01_012', U, 18)
+    rot(arm, 'spine.02_013', U, 18)
+    rot(arm, 'neck_017', U, 25)
+    rot(arm, 'neck_017', L, 25)
+    rot(arm, 'head_018', L, 20)
+    rot(arm, 'torso_02', F, 14)
+
+# 이름 = 게임의 자세 값 이름 (web/src/cat/liePoses.ts LIE_POSES와 같아야 한다)
+POSES = [('bellyUp', belly), ('sideLie', side), ('loafPose', loaf), ('napPose', nap), ('wrapPose', tailwrap)]
+ONLY = os.environ.get('POSES')
+if ONLY: POSES = [x for x in POSES if x[0] in ONLY.split(',')]
 for name, fn in POSES:
     rest(arm); fn(arm)
     render(f'{PREVIEW}_{name}', VIEWS)
