@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tongueOut } from '../src/cat/tongue';
+import { TONGUE_ON, tongueShown, tongueOut } from '../src/cat/tongue';
 
 const samples = (lick: number) => Array.from({ length: 200 }, (_, i) => tongueOut(lick, i / 60));
 
@@ -21,5 +21,20 @@ describe('혀 내밀기 (tongueOut)', () => {
 
   it('핥기 값이 클수록 더 많이 내민다', () => {
     expect(Math.max(...samples(0.6))).toBeLessThan(Math.max(...samples(1)));
+  });
+});
+
+describe('혀 보류 (2026-11-08 사용자 "일단 끄기")', () => {
+  it('보류 중에는 그루밍에서도 혀를 보이지 않는다 (tongueOut 계산은 그대로 둔다)', () => {
+    expect(TONGUE_ON).toBe(false);
+    for (let i = 0; i < 200; i++) expect(tongueShown(1, i / 60, false)).toBe(0);
+  });
+
+  it('1인칭에서는 켜져 있어도 보이지 않는다', () => {
+    for (let i = 0; i < 200; i++) expect(tongueShown(1, i / 60, true, true)).toBe(0);
+  });
+
+  it('다시 켜면 tongueOut과 같다', () => {
+    for (let i = 0; i < 50; i++) expect(tongueShown(1, i / 60, false, true)).toBe(tongueOut(1, i / 60));
   });
 });

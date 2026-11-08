@@ -10,7 +10,7 @@ import { ClipRetarget, GROOM_BONE_MAP, RUN_BONE_MAP, type BoneMapEntry } from '.
 import { ClipSampler } from './clipSampler';
 import { LIE_POSE_BONES, LIE_POSES, type LiePose } from './liePoses';
 import { balloonRound, floatPawTarget } from './balloonPose';
-import { tongueOut } from './tongue';
+import { tongueShown } from './tongue';
 
 /**
  * 뼈대가 있는 glb 고양이 모델 (사용자 제공 캐릭터.glb = Sketchfab "Toon Cat FREE", CC BY 4.0).
@@ -408,8 +408,8 @@ export class SkinnedCatRig implements CatRig {
     // 1인칭: 카메라 바로 앞 몸 표면은 숨긴다 (달릴 때 시야를 가리던 목·어깨)
     this.uniforms.uNearCut.value = bodyNearCut(this.firstPerson, this.root.getWorldScale(this.v2).x);
     this.setRel(this.mouth, this.q1.setFromEuler(this.euler.set(Math.max(0, Math.sin(time * 18)) * 0.25 * p.lick, 0, 0)));
-    // 혀: 핥을 때(그루밍·밥 먹기·입맛 다시기) 리듬에 맞춰 내밀었다 넣는다. 1인칭에서는 머리를 숨기므로 숨김
-    const out = this.firstPerson ? 0 : tongueOut(p.lick, time);
+    // 혀: 핥을 때(그루밍·밥 먹기·입맛 다시기) 리듬에 맞춰 내밀었다 넣는다. 1인칭에서는 머리를 숨기므로 숨김. 지금은 보류로 꺼 둠 (TONGUE_ON)
+    const out = tongueShown(p.lick, time, this.firstPerson);
     this.tongue.visible = out > 0.02;
     this.tongue.scale.set(0.7 + 0.3 * out, 1, Math.max(0.01, out));
 
