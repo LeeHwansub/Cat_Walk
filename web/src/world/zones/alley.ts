@@ -5,6 +5,7 @@ import { house, shop, villa, type Frontage } from '../parts/buildings';
 import type { MapKit } from '../parts/kit';
 import { groundAcUnit, styroGarden, transformer, wire } from '../parts/details';
 import { car, feedingShelter, pole, pot, weeds } from '../parts/props';
+import { exteriorStairs } from '../parts/stairs';
 import { asphaltTexture } from '../textures';
 
 /**
@@ -98,11 +99,15 @@ function roadMarkings(k: MapKit): void {
 function sideAlley(k: MapKit, minX: number, maxX: number, b: Rect): void {
   const mid = (minX + maxX) / 2;
   k.occluders.push(k.box(maxX - minX, 1.6, 0.2, k.mat('#b9b2a6'), mid, 0.8, b.maxZ - 0.1));
-  const deck = k.box(1.8, 0.38, 1.3, k.mat('#a0784e'), mid, 0.19, 10.5);
+  // 서쪽 벽(벽돌 빌라 옆면)에 붙은 외부 계단: 큰길 쪽에서 북쪽으로 올라 2층 현관 앞(3.0m)까지 (J-4)
+  exteriorStairs(k, { wallX: minX, width: 0.9, z0: 4.0, height: 3.0, steps: 18, tread: 0.26, landing: 1.32 });
+  // 평상은 현관 뒤(북쪽)로: 계단 옆 걷는 길(약 2.1m)과 평상 양옆 틈(0.6m)을 남긴다
+  const deckZ = 12.3;
+  const deck = k.box(1.8, 0.38, 1.3, k.mat('#a0784e'), mid, 0.19, deckZ);
   k.occluders.push(deck);
-  k.solidRect(mid - 0.9, mid + 0.9, 10.5 - 0.65, 10.5 + 0.65, 0.38); // 평상 윗면
-  k.interests.push({ kind: 'sunspot', x: mid, z: 9.4, r: 0.8 }, { kind: 'bench', x: mid, z: 9.5, r: 0.8 });
-  pot(k, minX + 0.4, 6.5);
+  k.solidRect(mid - 0.9, mid + 0.9, deckZ - 0.65, deckZ + 0.65, 0.38); // 평상 윗면
+  k.interests.push({ kind: 'sunspot', x: mid, z: deckZ - 1.1, r: 0.8 }, { kind: 'bench', x: mid, z: deckZ - 1.0, r: 0.8 });
+  pot(k, maxX - 0.4, 5.0); // 계단 자리에 있던 화분 (원래 minX + 0.4, 6.5)
   pot(k, maxX - 0.4, 8.2);
   weeds(k, maxX - 0.35, 12.5);
   // 높은 벽·담장은 카메라도 막는다 (빠지면 카메라가 벽을 뚫고 들어가 벽 속이 보인다)

@@ -73,11 +73,11 @@ describe('맵 물체 높이', () => {
     return k;
   }
 
-  it('평지 회귀 없음: 지금 맵의 모든 윗면은 턱보다 높다 (높이 0에서는 전처럼 막힌다)', () => {
+  it('평지 회귀 없음: 턱보다 낮은 윗면은 외부 계단 첫 칸(J-4)뿐이다 (그 밖에는 높이 0에서 전처럼 막힌다)', () => {
     const map = buildNeighborhood();
-    for (const s of [...map.collision.rects, ...map.collision.circles]) {
-      if (s.top !== undefined) expect(s.top).toBeGreaterThan(STEP_UP);
-    }
+    const low = [...map.collision.rects].filter((s) => s.top !== undefined && s.top <= STEP_UP);
+    expect(low.map((s) => [s.minX, s.minZ])).toEqual([[-18.5, 4.0]]);
+    for (const s of map.collision.circles) if (s.top !== undefined) expect(s.top).toBeGreaterThan(STEP_UP);
   });
 
   it('담의 충돌 윗면은 WallTop과 같고, 철망 담은 올라설 수 없다', () => {
