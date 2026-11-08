@@ -1,3 +1,4 @@
+import type { JumpWeights } from './jump';
 import type { BehaviorId } from '../behavior/types';
 import { runWeight, WALK_SPEED } from './CatController';
 import type { GazeAngles } from './gaze';
@@ -25,6 +26,8 @@ export interface AnimInput {
   floating?: number;
   /** 바라볼 대상의 방향 (없으면 null) */
   gaze?: GazeAngles | null;
+  /** 점프 자세 비율 (CatController.jumpPose). 점프 단계가 빨라 지연 없이 그대로 쓴다 */
+  jump?: JumpWeights;
 }
 
 /** 행동별로 시선 대상을 따르는 정도. 없는 행동(그루밍·먹기·냄새 맡기 등)은 자기 동작에 집중한다 */
@@ -93,6 +96,10 @@ export class CatAnimator {
     p.eyeYaw += (t.eyeYaw - p.eyeYaw) * k(14); // 눈은 고개보다 먼저, 빠르게 움직인다
     p.eyePitch += (t.eyePitch - p.eyePitch) * k(14);
     p.float = input.floating ?? 0;
+    p.jumpCrouch = input.jump?.crouch ?? 0;
+    p.jumpLaunch = input.jump?.launch ?? 0;
+    p.jumpAir = input.jump?.air ?? 0;
+    p.jumpLand = input.jump?.land ?? 0;
     return p;
   }
 

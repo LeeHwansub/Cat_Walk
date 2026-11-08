@@ -2,7 +2,7 @@ import { RUN_PUSH, type StickState } from '../ui/joystick';
 
 /**
  * 키보드 + 모바일 조이스틱 입력. 이동은 WASD·방향키 또는 조이스틱,
- * 단발 키(C 시점 전환, F 먹이, Esc 설정)
+ * 단발 키(C 시점 전환, F 먹이, Space 점프, Esc 설정)
  */
 export class Input {
   private readonly down = new Set<string>();
@@ -14,7 +14,7 @@ export class Input {
     target.addEventListener('keydown', (e) => {
       if (isTyping(e.target)) return;
       const k = e.code;
-      if (k.startsWith('Arrow')) e.preventDefault();
+      if (k.startsWith('Arrow') || k === 'Space') e.preventDefault(); // 페이지 스크롤·버튼 눌림 방지
       if (!this.down.has(k)) this.pressed.push(k);
       this.down.add(k);
     });
@@ -38,6 +38,11 @@ export class Input {
   /** 달리기: Shift를 누르고 있거나 조이스틱을 끝까지 밀었을 때 */
   running(): boolean {
     return this.has('ShiftLeft', 'ShiftRight') || this.stick.mag >= RUN_PUSH;
+  }
+
+  /** 화면 버튼(모바일 점프 버튼)을 단발 키처럼 넣는다 */
+  press(code: string): void {
+    this.pressed.push(code);
   }
 
   /** 지난 호출 이후 눌린 단발 키 */

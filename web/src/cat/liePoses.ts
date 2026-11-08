@@ -9,6 +9,10 @@ export const CAT_POSES_FILE = 'cat-poses.glb';
 export const LIE_POSES = ['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose'] as const;
 export type LiePose = (typeof LIE_POSES)[number];
 
+/** 점프 자세 (J-2): 웅크리기 · 도약 · 공중 · 착지. 같은 파일·같은 뼈를 쓴다 (tools/blender/poses.py) */
+export const JUMP_POSES = ['jumpCrouch', 'jumpLaunch', 'jumpAir', 'jumpLand'] as const;
+export type JumpPose = (typeof JUMP_POSES)[number];
+
 /** 자세에 쓰는 뼈. 꼬리·귀·눈·입은 넣지 않는다 (꼬리 흔들기·귀 움찔·눈 깜빡임은 코드가 계속 한다) */
 export const LIE_POSE_BONES = [
   'torso_02',

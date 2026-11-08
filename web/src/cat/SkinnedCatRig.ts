@@ -8,7 +8,7 @@ import type { CatPose } from './pose';
 import { HEAD_LAYER, type CatRig } from './rig';
 import { ClipRetarget, GROOM_BONE_MAP, RUN_BONE_MAP, type BoneMapEntry } from './retarget';
 import { ClipSampler } from './clipSampler';
-import { LIE_POSE_BONES, LIE_POSES, type LiePose } from './liePoses';
+import { JUMP_POSES, LIE_POSE_BONES, LIE_POSES, type JumpPose, type LiePose } from './liePoses';
 import { balloonRound, floatPawTarget } from './balloonPose';
 import { tongueShown } from './tongue';
 
@@ -175,7 +175,8 @@ export class SkinnedCatRig implements CatRig {
    * 기준 축이 원본과 달라(−90°·180°) 회전값을 그대로 넣으면 몸이 세로로 선다. 그래서 달리기·그루밍처럼
    * 기준 자세에서 돈 만큼(월드 회전 차이)만 옮긴다. 같은 고양이라 좌표 맞춤은 없음
    */
-  private liePoses: { name: LiePose; motion: Motion }[] = [];
+  /** Blender 자세 (누운 자세 + 점프 자세). 같은 파일·같은 뼈 */
+  private liePoses: { name: LiePose | JumpPose; motion: Motion }[] = [];
 
   /**
    * 동작 클립 (glb 안의 걷기 클립 등). 걸음 위상에 맞춰 시간을 정하고, 다리·몸통 뼈만 가져와
@@ -313,7 +314,7 @@ export class SkinnedCatRig implements CatRig {
       this.model.position.y = 0;
     }
     this.groom = this.makeMotion(motions.groom, GROOM_BONE_MAP, 'j_body_00_12');
-    for (const name of LIE_POSES) {
+    for (const name of [...LIE_POSES, ...JUMP_POSES]) {
       const clip = motions.poses?.animations.find((a) => a.name === name);
       const motion = clip ? this.makeMotion(motions.poses, LIE_POSE_BONES.map((n) => [n, n] as BoneMapEntry), 'torso_02', clip, new THREE.Quaternion()) : null;
       if (motion) this.liePoses.push({ name, motion });
@@ -465,7 +466,8 @@ export class SkinnedCatRig implements CatRig {
       this.root.updateMatrixWorld(true);
     }
 
-    // 누운 자세: Blender로 만든 배 보이기·옆으로 눕기 자세를 섞는다 (몸통·척추·목·머리·다리. 꼬리·귀는 코드)
+    // 누운 자세·점프 자세: Blender로 만든 자세를 섞는다 (몸통·척추·목·머리·다리. 꼬리·귀는 코드).
+    // 점프 자세도 가장 낮은 점을 발 높이(고양이 y)에 맞춘다: 포물선이 발끝의 궤적이 되어 담 모서리를 넘는다
     for (const lp of this.liePoses) {
       const w = p[lp.name] * (1 - p.float);
       if (w <= 0.001) continue;

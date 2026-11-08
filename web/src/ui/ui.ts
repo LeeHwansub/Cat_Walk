@@ -14,8 +14,18 @@ export function bindUi(game: Game): void {
   // 모바일: 왼쪽 아래 조이스틱 (터치 기기에서만), 안내 문구도 터치 조작으로
   if (isTouchDevice()) {
     new VirtualJoystick(hud, (s) => game.setStick(s));
+    // 오른쪽 아래 점프 버튼 (J-2)
+    const jump = document.createElement('button');
+    jump.className = 'jump-btn';
+    jump.type = 'button';
+    jump.textContent = '점프';
+    jump.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      game.pressJump();
+    });
+    hud.appendChild(jump);
     const hint = hud.querySelector('.hint');
-    if (hint) hint.textContent = '조이스틱 이동 (끝까지 밀면 달리기) · 화면 드래그 회전 · 고양이 탭 쓰다듬기';
+    if (hint) hint.textContent = '조이스틱 이동 (끝까지 밀면 달리기) · 점프 버튼 · 화면 드래그 회전 · 고양이 탭 쓰다듬기';
   }
   const settings = $('settings');
   game.setFadeElement($('fade'));

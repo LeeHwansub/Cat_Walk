@@ -471,6 +471,28 @@ kbd {
   justify-content: center;
 }
 
+/* 모바일 점프 버튼 (오른쪽 아래, 조이스틱과 같은 높이) */
+.jump-btn {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: 132px;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: rgba(255, 251, 245, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  color: #3a2f25;
+  font: 600 16px/1 inherit;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.jump-btn:active {
+  background: rgba(255, 251, 245, 0.75);
+}
+
 .joystick.active {
   background: rgba(255, 251, 245, 0.5);
 }

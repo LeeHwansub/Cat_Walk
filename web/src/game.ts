@@ -21,7 +21,8 @@ import { EatingSequence } from './systems/eating';
 import { FoodBowl } from './systems/food';
 import { feed, tickHunger, type ActivityState } from './systems/hunger';
 import { Resident } from './systems/npc';
-import { isFree, pathClear } from './world/collision';
+import { findLanding } from './cat/jump';
+import { isFree, pathClear, STEP_UP } from './world/collision';
 import { buildNeighborhood, type Interest, type Neighborhood } from './world/map/neighborhood';
 import { Stage } from './world/scene';
 
@@ -202,6 +203,11 @@ export class Game {
     this.input.setStick(s);
   }
 
+  /** 모바일 점프 버튼 (Space와 같다) */
+  pressJump(): void {
+    this.input.press('Space');
+  }
+
   toggleCamera(): void {
     const next: CameraMode = this.cam.mode === 'follow' ? 'cat' : 'follow';
     // 시점 전환이 뚝 끊기지 않도록 화면을 잠깐 어둡게 했다가 바꾼다
@@ -301,6 +307,7 @@ export class Game {
         petted: now < this.petUntil,
         standingUp: this.standingUp,
         floating: this.balloon.amount,
+        jump: this.ctrl.jumpPose(),
       },
       dt,
     );
@@ -323,7 +330,45 @@ export class Game {
       if (this.phase !== 'play') continue;
       if (k === 'KeyC') this.toggleCamera();
       if (k === 'KeyF') this.giveFood();
+      if (k === 'Space') this.tryJump();
     }
+  }
+
+  /**
+   * 점프 (J-2): 앞에 올라설 곳(담·평상·차 보닛 …)이 있으면 그 위로, 높은 곳이면 앞쪽 낮은 땅으로, 없으면 제자리에서 뛴다.
+   * 직접 조작으로 바뀐다. 먹는 중·떠 있을 때는 뛰지 않고, 앉거나 누워 있으면 먼저 일어선다
+   */
+  private tryJump(): void {
+    if (this.eating?.seq.locksMovement || this.balloon.amount > 0.05 || this.ctrl.jumping) return;
+    if (this.eating) this.cancelEating();
+    this.petUntil = 0;
+    this.lastInputAt = this.time;
+    if (this.mode === 'auto') {
+      this.mode = 'manual';
+      this.manualLocked = false;
+      this.clearTargets();
+      this.emitHud();
+    }
+    if (!this.readyToMove(0)) return;
+    this.ctrl.jump();
+  }
+
+  /**
+   * 자동 생활에서 높은 곳(담·차 위 …)에 있으면 먼저 뛰어내린다. 가장자리에서 멈추는 높은 곳에서는 걷기 목표에 갈 수 없다.
+   * (높은 곳에 올라가 쉬는 행동은 J-5.) 뛰어내릴 곳이 있으면 true
+   */
+  private jumpDownIfHigh(): boolean {
+    if (this.ctrl.y <= STEP_UP) return false;
+    const r = 0.16 * this.ctrl.scale;
+    for (let i = 0; i < 8; i++) {
+      const h = this.ctrl.heading + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (Math.PI / 4);
+      const l = findLanding(this.map.collision, this.ctrl.x, this.ctrl.z, this.ctrl.y, h, this.ctrl.scale, r);
+      if (l && l.y < this.ctrl.y - STEP_UP) {
+        this.ctrl.heading = h;
+        return this.ctrl.jump();
+      }
+    }
+    return false;
   }
 
   private updatePlay(dt: number, now: number): void {
@@ -402,6 +447,9 @@ export class Game {
   // ---------------------------------------------------------------- 자율 행동 실행
 
   private updateAuto(dt: number, now: number): void {
+    // 점프 중에는 점프만 진행하고, 높은 곳에 있으면 먼저 뛰어내린다
+    if (this.ctrl.jumping) return this.ctrl.brake(dt);
+    if (this.jumpDownIfHigh()) return;
     const senses = this.senses();
     const before = this.brain.current;
     if (this.brain.update(dt, now, senses)) this.onBehaviorEnd(before.id);

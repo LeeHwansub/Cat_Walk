@@ -66,6 +66,7 @@ export function renderInfoPage(): string {
     <ul>
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키: 이동 (누르면 직접 조작으로 바뀝니다)</li>
       <li><kbd>Shift</kbd>를 누른 채 이동: 달리기</li>
+      <li><kbd>Space</kbd>: 점프 (앞에 담·평상·차 보닛이 있으면 올라가고, 높은 곳에서는 뛰어내립니다)</li>
       <li>마우스 드래그: 카메라 회전 · 휠: 확대/축소</li>
       <li>고양이 클릭: 쓰다듬기</li>
       <li><kbd>C</kbd>: 3인칭 ↔ 고양이 시점 · <kbd>F</kbd>: 먹이 주기 · <kbd>Esc</kbd>: 설정</li>

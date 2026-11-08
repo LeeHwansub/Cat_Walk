@@ -87,8 +87,39 @@ def tailwrap(arm):
     rot(arm, 'head_018', L, 20)
     rot(arm, 'torso_02', F, 14)
 
-# 이름 = 게임의 자세 값 이름 (web/src/cat/liePoses.ts LIE_POSES와 같아야 한다)
-POSES = [('bellyUp', belly), ('sideLie', side), ('loafPose', loaf), ('napPose', nap), ('wrapPose', tailwrap)]
+# ---- 점프 (J-2, docs/10-jump-plan.md): 웅크리기 → 도약 → 공중 → 착지
+# 몸통을 L축으로 기울인다: +각도는 옆에서 볼 때 시계 방향 = 코가 아래로. 다리는 aim()으로 몸통을 돌린 뒤에 잡는다
+
+def jump_crouch(arm):
+    # 웅크리기: 엉덩이를 낮추고 뒷다리를 깊게 접어 힘을 모은다. 앞다리는 굽히고 고개는 목표를 본다
+    rot(arm, 'torso_02', L, 6)
+    rot(arm, 'neck_017', L, -10)
+    rot(arm, 'head_018', L, 4)
+    rot(arm, 'spine.01_012', L, 6)
+    legs(arm, (-155, -40, -5), (-15, -172, -55, -5))
+
+def jump_launch(arm):
+    # 도약: 몸을 길게 뻗어 위로. 앞다리는 앞·위로 뻗고, 뒷다리는 뒤·아래로 쭉 편다
+    rot(arm, 'torso_02', L, -32)
+    rot(arm, 'neck_017', L, 10)
+    legs(arm, (20, 35, 30), (-120, -140, -150, -160))
+
+def jump_air(arm):
+    # 공중: 몸은 수평, 앞발은 가슴 앞으로 모으고 뒷다리도 몸 밑에 접는다
+    rot(arm, 'torso_02', L, -5)
+    rot(arm, 'neck_017', L, 5)
+    legs(arm, (-110, -168, -120), (5, -170, -60, -30))
+
+def jump_land(arm):
+    # 착지: 코가 아래로 기울고 앞다리를 아래·앞으로 뻗어 먼저 닿는다. 뒷다리는 뒤에서 따라온다
+    rot(arm, 'torso_02', L, 22)
+    rot(arm, 'neck_017', L, -18)
+    rot(arm, 'head_018', L, -6)
+    legs(arm, (-75, -80, -60), (-130, -150, -120, -70))
+
+# 이름 = 게임의 자세 값 이름 (web/src/cat/liePoses.ts LIE_POSES·JUMP_POSES와 같아야 한다)
+POSES = [('bellyUp', belly), ('sideLie', side), ('loafPose', loaf), ('napPose', nap), ('wrapPose', tailwrap),
+         ('jumpCrouch', jump_crouch), ('jumpLaunch', jump_launch), ('jumpAir', jump_air), ('jumpLand', jump_land)]
 ONLY = os.environ.get('POSES')
 if ONLY: POSES = [x for x in POSES if x[0] in ONLY.split(',')]
 for name, fn in POSES:
