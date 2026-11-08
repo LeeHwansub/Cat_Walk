@@ -93,4 +93,22 @@ describe('mergeStatic (구역 안 정적 물체 합치기)', () => {
     expect(car.children.length).toBe(2);
     expect(meshes(g).length).toBe(3);
   });
+
+  it('투명 재질은 합치지 않지만, 합쳐도 된다고 표시한 투명 재질(같은 판 여러 장)은 합친다', () => {
+    const g = new THREE.Group();
+    const plain = new THREE.MeshStandardMaterial({ transparent: true });
+    const decal = new THREE.MeshStandardMaterial({ transparent: true });
+    decal.userData.mergeable = true;
+    for (let i = 0; i < 3; i++) {
+      const a = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), plain);
+      a.position.x = i;
+      const b = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), decal);
+      b.position.x = i;
+      g.add(a, b);
+    }
+    expect(mergeStatic(g, new Set())).toBe(2);
+    expect(g.children.filter((c) => (c as THREE.Mesh).material === plain)).toHaveLength(3);
+    expect(g.children.filter((c) => (c as THREE.Mesh).material === decal)).toHaveLength(1);
+  });
 });
+

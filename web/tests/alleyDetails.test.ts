@@ -29,7 +29,7 @@ describe('골목 디테일 (3-1) 배치', () => {
     let wireMat = 0;
     map.group.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
-      if ((o as THREE.Mesh).isMesh && m?.color?.getHexString() === '26282a') wireMat++;
+      if ((o as THREE.Mesh).isMesh && m?.color?.getHexString() === '2f3336') wireMat++;
     });
     expect(tubes + wireMat).toBeGreaterThan(0);
   });

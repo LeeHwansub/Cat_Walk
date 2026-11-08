@@ -7,6 +7,14 @@ import type { MapKit } from './kit';
  * 모두 코드로 만든다 (외부 에셋 없음). 정적 메시는 구역 합치기(mergeStatic)로 재질별로 묶인다.
  */
 
+/**
+ * 디테일 재질은 몇 가지 색으로 묶는다. 재질마다 구역 합치기 묶음(그리기 호출)이 하나씩 생겨,
+ * 부품마다 색을 따로 쓰면 그리기 호출이 약 15~20% 늘었다 (2026-11-08 측정)
+ */
+const light = (k: MapKit) => k.mat('#e6e4de', 0.7); // 창턱·창틀·실외기 몸통·스티로폼
+const dark = (k: MapKit) => k.mat('#2f3336', 0.65); // 방범창·그릴·전선·우편함 칸
+const metal = (k: MapKit) => k.mat('#9ea3a6', 0.5); // 앵글·난간·변압기·우편함
+
 /** 외벽 텍스처(facadeTexture) 한 장 안의 창 위치 (128px 기준: 가로 28~100, 세로 34~84 위에서부터) */
 const WIN_U0 = 28 / 128;
 const WIN_U1 = 100 / 128;
@@ -61,16 +69,16 @@ export interface FacadeOptions {
 /** 외벽 디테일: 창턱, (벽돌이면) 창, 방범창, 벽걸이 실외기, 빗물 자국 */
 export function facadeDetails(k: MapKit, f: FacadeOptions): void {
   const wins = windowRects({ minX: f.minX, maxX: f.maxX, height: f.height, tileW: f.tileW, tileH: f.tileH, uFromMax: f.out === -1 });
-  const sill = k.mat('#d8d3c8', 0.85);
-  const frame = k.mat('#ecebe6', 0.7);
+  const sill = light(k);
+  const frame = light(k);
   const glass = k.mat('#4f6070', 0.25);
-  const bar = k.mat('#3c3f42', 0.6);
+  const bar = dark(k);
   const streak = streakMaterial();
   const z = (d: number) => f.faceZ + f.out * d;
   for (const win of wins) {
     const h = win.y1 - win.y0;
     // 창턱: 창 아래로 튀어나온 턱
-    k.box(win.w + 0.14, 0.05, 0.14, sill, win.x, win.y0 - 0.03, z(0.07));
+    k.box(win.w + 0.14, 0.05, 0.14, sill, win.x, win.y0 - 0.03, z(0.07), false);
     if (f.glass) {
       k.box(win.w, h, 0.04, frame, win.x, (win.y0 + win.y1) / 2, z(0.02), false);
       for (const s of [-1, 1]) k.box(win.w * 0.42, h * 0.84, 0.02, glass, win.x + s * win.w * 0.23, (win.y0 + win.y1) / 2, z(0.045), false);
@@ -101,21 +109,23 @@ export function facadeDetails(k: MapKit, f: FacadeOptions): void {
 let streakMat: THREE.MeshStandardMaterial | null = null;
 function streakMaterial(): THREE.MeshStandardMaterial {
   streakMat ??= new THREE.MeshStandardMaterial({ map: rainStreakTexture(), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 });
+  // 같은 판 여러 장이라 구역 합치기에서 하나로 묶어도 된다 (안 묶으면 판마다 그리기 호출이 하나씩 늘었다)
+  streakMat.userData.mergeable = true;
   return streakMat;
 }
 
 /** 에어컨 실외기 (벽걸이): 몸통 + 팬 그릴 + 앵글 받침. y는 받침 위 몸통 바닥 높이 */
 export function acUnit(k: MapKit, x: number, y: number, faceZ: number, out: 1 | -1): void {
-  const body = k.mat('#e6e4de', 0.6);
-  const dark = k.mat('#3a3d40', 0.7);
-  const angle = k.mat('#8d9093', 0.5);
+  const body = light(k);
+  const grille = dark(k);
+  const angle = metal(k);
   const d = 0.28;
   const cz = faceZ + out * (0.04 + d / 2);
-  k.box(0.78, 0.56, d, body, x, y + 0.28, cz);
-  fanGrille(k, x - 0.1, y + 0.28, cz + out * (d / 2 + 0.006), out, dark);
+  k.box(0.78, 0.56, d, body, x, y + 0.28, cz, false);
+  fanGrille(k, x - 0.1, y + 0.28, cz + out * (d / 2 + 0.006), out, grille);
   // 앵글 받침: 몸통 아래 두 줄 + 벽으로 비스듬한 지지대
   for (const s of [-0.3, 0.3]) {
-    k.box(0.04, 0.04, d + 0.06, angle, x + s, y - 0.02, faceZ + out * ((d + 0.06) / 2));
+    k.box(0.04, 0.04, d + 0.06, angle, x + s, y - 0.02, faceZ + out * ((d + 0.06) / 2), false);
     const brace = k.box(0.03, 0.34, 0.03, angle, x + s, y - 0.15, faceZ + out * 0.12, false);
     brace.rotation.x = out * 0.75;
   }
@@ -123,13 +133,13 @@ export function acUnit(k: MapKit, x: number, y: number, faceZ: number, out: 1 | 
 
 /** 바닥형 실외기 (주차장·빈터): 충돌 있음 */
 export function groundAcUnit(k: MapKit, x: number, z: number, out: 1 | -1, alongX = true): void {
-  const body = k.mat('#e6e4de', 0.6);
-  const dark = k.mat('#3a3d40', 0.7);
+  const body = light(k);
+  const grille = dark(k);
   const w = 0.82;
   const d = 0.32;
   const m = k.box(alongX ? w : d, 0.62, alongX ? d : w, body, x, 0.31, z);
   if (!alongX) m.rotation.y = 0;
-  if (alongX) fanGrille(k, x - 0.1, 0.33, z + out * (d / 2 + 0.006), out, dark);
+  if (alongX) fanGrille(k, x - 0.1, 0.33, z + out * (d / 2 + 0.006), out, grille);
   k.solidRect(x - (alongX ? w : d) / 2, x + (alongX ? w : d) / 2, z - (alongX ? d : w) / 2, z + (alongX ? d : w) / 2);
 }
 
@@ -138,16 +148,15 @@ function fanGrille(k: MapKit, x: number, y: number, z: number, out: 1 | -1, mat:
   g.rotation.x = Math.PI / 2;
   g.position.set(x, y, z);
   k.group.add(g);
-  const light = k.mat('#bfbcb5', 0.6);
   for (const r of [0, Math.PI / 2]) {
-    const s = k.box(0.4, 0.02, 0.012, light, x, y, z + out * 0.006, false);
+    const s = k.box(0.4, 0.02, 0.012, metal(k), x, y, z + out * 0.006, false);
     s.rotation.z = r;
   }
 }
 
 /** 옥상 난간: 길 쪽 가장자리를 따라 기둥과 손잡이 두 줄 */
 export function roofRail(k: MapKit, minX: number, maxX: number, faceZ: number, out: 1 | -1, height: number): void {
-  const mat = k.mat('#9ea3a6', 0.5);
+  const mat = metal(k);
   const z = faceZ - out * 0.12;
   const n = Math.max(2, Math.round((maxX - minX) / 1.4));
   for (let i = 0; i <= n; i++) k.box(0.04, 0.9, 0.04, mat, minX + 0.1 + ((maxX - minX - 0.2) * i) / n, height + 0.45, z, false);
@@ -161,37 +170,35 @@ export function wire(k: MapKit, a: THREE.Vector3, b: THREE.Vector3, sag: number)
     const t = i / 12;
     pts.push(new THREE.Vector3().lerpVectors(a, b, t).add(new THREE.Vector3(0, -sag * 4 * t * (1 - t), 0)));
   }
-  const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.012, 4, false), k.mat('#26282a', 0.8));
+  const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.012, 4, false), dark(k));
   k.group.add(m);
 }
 
 /** 전봇대 변압기 (원통 + 받침) */
 export function transformer(k: MapKit, x: number, z: number, side: 1 | -1): void {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.7, 14), k.mat('#8e9497', 0.55));
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.7, 14), metal(k));
   m.position.set(x, 6.1, z + side * 0.38);
   m.castShadow = true;
   k.group.add(m);
-  k.box(0.08, 0.08, 0.4, k.mat('#6f7275', 0.6), x, 5.85, z + side * 0.2);
+  k.box(0.08, 0.08, 0.4, metal(k), x, 5.85, z + side * 0.2);
 }
 
 /** 집합 우편함: 담에 붙은 금속 상자 + 칸 */
 export function mailbox(k: MapKit, x: number, faceZ: number, out: 1 | -1): void {
-  const metal = k.mat('#a8b0b4', 0.45);
-  const slot = k.mat('#2f3336', 0.6);
+  const slot = dark(k);
   const z = faceZ + out * 0.06;
-  k.box(0.56, 0.42, 0.12, metal, x, 1.0, z);
+  k.box(0.56, 0.42, 0.12, metal(k), x, 1.0, z);
   for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) k.box(0.12, 0.012, 0.01, slot, x - 0.17 + c * 0.17, 1.08 - r * 0.17, z + out * 0.062, false);
 }
 
 /** 스티로폼 상자 텃밭 (담 밑): 흰 상자 + 흙 + 새싹. 충돌 있음 */
 export function styroGarden(k: MapKit, x: number, z: number): void {
-  k.box(0.62, 0.3, 0.42, k.mat('#f1f0ea', 0.95), x, 0.15, z);
+  k.box(0.62, 0.3, 0.42, light(k), x, 0.15, z);
   k.box(0.56, 0.02, 0.36, k.mat('#5b4636', 1), x, 0.29, z, false);
   const leaf = k.mat('#5f9a3e', 0.9);
   for (let i = 0; i < 4; i++) {
     const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07 + k.rng() * 0.04, 0), leaf);
     s.position.set(x - 0.2 + i * 0.13, 0.36, z + (k.rng() - 0.5) * 0.2);
-    s.castShadow = true;
     k.group.add(s);
   }
   k.solidRect(x - 0.31, x + 0.31, z - 0.21, z + 0.21);

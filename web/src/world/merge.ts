@@ -4,7 +4,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 /**
  * 구역 안의 움직이지 않는 메시를 재질·그림자 설정이 같은 것끼리 하나로 합친다 (그리기 호출 줄이기, 3-0).
  * - keep에 든 물체와 그 자식(카메라 가림 물체: 건물·담·차 등)은 합치지 않는다
- * - InstancedMesh, SkinnedMesh, 투명 재질은 합치지 않는다
+ * - InstancedMesh, SkinnedMesh, 투명 재질은 합치지 않는다. 단 재질 userData.mergeable이 참인 투명 재질
+ *   (빗물 자국처럼 같은 판 여러 장, 그리는 순서가 상관없는 것)은 합친다
  * - 원래 위치·회전·크기를 정점에 구워 넣으므로 모양은 그대로다
  * 반환: 합쳐서 없어진 메시 수
  */
@@ -16,7 +17,7 @@ export function mergeStatic(group: THREE.Group, keep: Set<THREE.Object3D>): numb
   const visit = (o: THREE.Object3D) => {
     if (keep.has(o)) return;
     const m = o as THREE.Mesh;
-    if (m.isMesh && !(m as THREE.InstancedMesh).isInstancedMesh && !(m as THREE.SkinnedMesh).isSkinnedMesh && !Array.isArray(m.material) && !m.material.transparent) {
+    if (m.isMesh && !(m as THREE.InstancedMesh).isInstancedMesh && !(m as THREE.SkinnedMesh).isSkinnedMesh && !Array.isArray(m.material) && (!m.material.transparent || m.material.userData.mergeable === true)) {
       const key = `${m.material.uuid}|${m.castShadow ? 1 : 0}${m.receiveShadow ? 1 : 0}|${m.layers.mask}`;
       let list = buckets.get(key);
       if (!list) buckets.set(key, (list = []));

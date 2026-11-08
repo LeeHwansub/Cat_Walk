@@ -106,3 +106,38 @@ export function rainStreakTexture(): THREE.CanvasTexture {
     }
   });
 }
+
+/** 시멘트 블록 담: 한 장 = 가로 0.8m × 세로 0.8m (블록 0.4 × 0.2m, 줄마다 반 칸 어긋남) */
+export function blockWallTexture(): THREE.CanvasTexture {
+  const rng = createRng(13);
+  const t = canvasTexture(128, 128, (g) => {
+    g.fillStyle = '#8d897f';
+    g.fillRect(0, 0, 128, 128);
+    for (let row = 0; row < 4; row++) {
+      const off = row % 2 ? 32 : 0;
+      for (let col = -1; col < 3; col++) {
+        const c = new THREE.Color('#aaa69c').multiplyScalar(0.9 + rng() * 0.18);
+        g.fillStyle = `#${c.getHexString()}`;
+        g.fillRect(col * 64 + off + 1, row * 32 + 1, 62, 30);
+      }
+    }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+/** 철망: 마름모 격자 (투명) */
+export function wireMeshTexture(): THREE.CanvasTexture {
+  const t = canvasTexture(64, 64, (g) => {
+    g.strokeStyle = 'rgba(70,74,76,0.95)';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(64, 64);
+    g.moveTo(64, 0);
+    g.lineTo(0, 64);
+    g.stroke();
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
