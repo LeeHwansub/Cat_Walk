@@ -31,6 +31,8 @@ export interface CatSkinUniforms {
   uNearCut: { value: number };
   /** 몸 전체 보이는 정도 (1 = 다 보임). 3인칭 카메라가 바짝 붙으면 점무늬로 흐리게 */
   uFade: { value: number };
+  /** 눈 감은 정도 0 ~ 1 (눈꺼풀이 덮는다. 깜빡임·졸림) */
+  uLid: { value: number };
 }
 
 export function createCatSkinUniforms(): CatSkinUniforms {
@@ -49,6 +51,7 @@ export function createCatSkinUniforms(): CatSkinUniforms {
     uPadDark: { value: PAD_DARK.clone() },
     uNearCut: { value: 0 },
     uFade: { value: 1 },
+    uLid: { value: 0 },
   };
 }
 
@@ -105,15 +108,23 @@ varying vec3 vRest;
 #ifdef CAT_FUR
 uniform float uFurLen;
 uniform float uLayer;
+uniform float uLid;
 varying float vFurMask;
 /** 털 길이 배율: 털 텍스처 영역만, 머리는 짧게, 눈·코·발바닥은 없음 */
 float catFurMask(vec3 p, vec2 tuv) {
+  // 눈을 감으면 눈꺼풀에도 털 겹을 씌운다 (덮이지 않은 눈 부분은 조각 셰이더가 지운다)
+  float lidFur = 0.6 * smoothstep(0.05, 0.4, uLid);
+  bool eyePlate = tuv.x > 0.875 || (tuv.x >= 0.375 && tuv.x < 0.5 && tuv.y >= 0.75) || (tuv.x < 0.125 && tuv.y >= 0.75);
+  bool eyeArea = eyePlate && length(vec2(abs(p.x) - 0.345, p.y - 2.857)) < 0.13 && p.z > 1.85;
+  if (eyeArea && lidFur > 0.0) return lidFur;
   if (tuv.x >= 0.283) return 0.0;
-  bool eye = abs(abs(p.x) - 0.345) < 0.16 && abs(p.y - 2.857) < 0.16 && p.z > 1.85;
-  if (eye) return 0.0;
+  // 눈 둘레만 털을 뺀다 (원, 경계는 부드럽게). 예전엔 네모(한 변 0.32)라 눈 주위에 털 없는 네모가 도드라졌다
+  float eyeD = length(vec2(abs(p.x) - 0.345, p.y - 2.857));
+  float eyeCut = p.z > 1.85 ? smoothstep(0.105, 0.13, eyeD) : 1.0;
+  if (eyeCut < 0.01) return 0.0;
   float head = smoothstep(1.05, 1.3, p.z) * smoothstep(1.75, 2.05, p.y);
   float face = smoothstep(1.7, 1.9, p.z) * smoothstep(2.1, 2.3, p.y) * (1.0 - smoothstep(3.05, 3.2, p.y));
-  return mix(1.0, 0.4, head) * (1.0 - face * 0.85) * smoothstep(0.02, 0.1, p.y);
+  return mix(1.0, 0.4, head) * (1.0 - face * 0.85) * smoothstep(0.02, 0.1, p.y) * eyeCut;
 }
 #endif
 float catBodyMask(vec3 p) {
@@ -160,6 +171,7 @@ uniform vec3 uPad;
 uniform vec3 uPadDark;
 uniform float uNearCut;
 uniform float uFade;
+uniform float uLid;
 varying vec3 vRest;
 /** 패드 부분 (거칠기를 낮춰 촉촉하게 보이게 한다) */
 float catPadMask = 0.0;
@@ -185,6 +197,11 @@ float catBand(float s, float w) {
 vec3 catFurColor(vec3 p, vec3 orig) {
   int pat = int(uPattern + 0.5);
   float lum = dot(orig, vec3(0.2126, 0.7152, 0.0722));
+  // 눈 둘레: 원본 텍스처가 밝아 주변 얼굴보다 밝게 칠해져 경계가 도드라졌다. 얼굴 밝기에 맞춘다
+  float nearEye = (1.0 - smoothstep(0.14, 0.3, length(vec2(abs(p.x) - 0.345, p.y - 2.857)))) * step(1.7, p.z);
+  lum = mix(lum, 0.3, nearEye);
+  // 털 겹이 얇은 눈 둘레 밑바탕은 털 뿌리처럼 조금 어둡게 (주변 얼굴은 털 겹 뿌리가 어둡게 칠해진다)
+  float eyeRoot = (1.0 - smoothstep(0.11, 0.16, length(vec2(abs(p.x) - 0.345, p.y - 2.857)))) * step(1.7, p.z);
   // 원본 그라데이션: 등은 어둡고 배·턱 아래는 밝다. 이 명암을 살린다
   float shade = mix(0.8, 1.06, smoothstep(0.02, 0.45, lum));
   float under = smoothstep(0.4, 0.85, lum);
@@ -233,7 +250,7 @@ vec3 catFurColor(vec3 p, vec3 orig) {
     white *= 0.95;
   }
   c = mix(c, uWhite, white);
-  return c * shade;
+  return c * shade * mix(1.0, 0.82, eyeRoot);
 }
 
 /** 타원 거리 (0 = 경계, 음수 = 안쪽). r: 반지름 */
@@ -326,9 +343,25 @@ if (uFade < 0.999 && uFade < catHash(vec3(floor(gl_FragCoord.xy), 3.0))) discard
   bool eyeUv = vMapUv.x > 0.875 || (vMapUv.x >= 0.375 && vMapUv.x < 0.5 && vMapUv.y >= 0.75) || (vMapUv.x < 0.125 && vMapUv.y >= 0.75);
   bool eye = eyeUv && abs(abs(rp.x) - 0.345) < 0.13 && abs(rp.y - 2.857) < 0.13 && rp.z > 1.92 && rp.z < 2.06;
   if (eye) {
-    // 눈 정점은 둥근 사각형이라 원 바깥 모서리는 눈꺼풀 털로 칠한다
+    // 눈 판은 둥근 사각형이라 원 바깥 모서리가 털 질감 없는 매끈한 네모로 도드라졌다 (2026-11-08).
+    // 원 바깥은 그리지 않아 뒤의 얼굴 털이 보이게 한다 (눈 가장자리 어두운 테두리는 아이라인처럼 남김)
     float er = length(vec2(abs(rp.x) - 0.345, rp.y - 2.857) / 0.115);
-    catCol = er < 1.0 ? catEyeColor(rp) : catFurColor(rp, vec3(0.25));
+    if (er >= 1.0) discard;
+    catCol = catEyeColor(rp);
+    // 눈꺼풀: 위·아래에서 털색 눈꺼풀이 덮어 온다 (예전엔 눈 판을 세로로 눌러 뒤의 눈구멍이 드러났다)
+    if (uLid > 0.001) {
+      vec2 lq = vec2(abs(rp.x) - 0.345, rp.y - 2.857) / 0.115;
+      float upper = mix(1.05, -0.12, uLid) - 0.22 * lq.x * lq.x;
+      float lower = mix(-1.05, -0.12, uLid) + 0.12 * lq.x * lq.x;
+      // 털 겹이 없는 판이라 주변 털(뿌리가 어두운 털 겹)에 맞춰 어둡게 하고 털 질감 무늬를 넣는다
+      vec3 lid = catFurColor(rp, vec3(0.3)) * (0.72 + 0.16 * catNoise(rp * 140.0));
+      bool covered = lq.y > upper || lq.y < lower;
+      if (covered) catCol = lid;
+#ifdef CAT_FUR
+      if (!covered) discard; // 털 겹은 눈꺼풀이 덮은 곳에만
+#endif
+      catCol = mix(catCol, vec3(0.04), (1.0 - smoothstep(0.0, 0.09, abs(lq.y - upper))) * step(0.02, uLid)); // 위 눈꺼풀 선
+    }
   } else if (rp.y < 0.012) {
     catCol = catPadColor(rp, catFurColor(rp, sampledDiffuseColor.rgb)); // 발바닥 (패드 + 털)
   } else if (vMapUv.x < 0.283) {
@@ -365,6 +398,6 @@ export function createCatSkinMaterial(source: THREE.MeshStandardMaterial, unifor
         // 발바닥 패드는 촉촉하게: 거칠기를 낮춘다
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.4, catPadMask);');
   };
-  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v6' : 'cat-skin-v6');
+  m.customProgramCacheKey = () => (furLayer ? 'cat-skin-fur-v12' : 'cat-skin-v12');
   return m;
 }

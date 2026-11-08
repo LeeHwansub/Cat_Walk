@@ -738,7 +738,9 @@ export class SkinnedCatRig implements CatRig {
       this.nextBlink = time + 2.5 + Math.random() * 4;
     }
     const closed = Math.max(p.eyesClosed, time < this.blinkUntil ? 1 : 0);
-    for (const e of this.eyes) e.scale.set(this.eyeScale, this.eyeScale * lerp(1, 0.06, closed), this.eyeScale);
+    // 눈 판은 크기 그대로 두고 셰이더 눈꺼풀이 덮는다 (눈 판을 누르면 뒤의 털 없는 눈구멍이 드러났다)
+    for (const e of this.eyes) e.scale.setScalar(this.eyeScale);
+    this.uniforms.uLid.value = closed;
   }
 
   private updateEars(time: number, dt: number): void {
