@@ -140,7 +140,7 @@ export function groundAcUnit(k: MapKit, x: number, z: number, out: 1 | -1, along
   const m = k.box(alongX ? w : d, 0.62, alongX ? d : w, body, x, 0.31, z);
   if (!alongX) m.rotation.y = 0;
   if (alongX) fanGrille(k, x - 0.1, 0.33, z + out * (d / 2 + 0.006), out, grille);
-  k.solidRect(x - (alongX ? w : d) / 2, x + (alongX ? w : d) / 2, z - (alongX ? d : w) / 2, z + (alongX ? d : w) / 2);
+  k.solidRect(x - (alongX ? w : d) / 2, x + (alongX ? w : d) / 2, z - (alongX ? d : w) / 2, z + (alongX ? d : w) / 2, 0.62);
 }
 
 function fanGrille(k: MapKit, x: number, y: number, z: number, out: 1 | -1, mat: THREE.Material): void {
@@ -201,5 +201,5 @@ export function styroGarden(k: MapKit, x: number, z: number): void {
     s.position.set(x - 0.2 + i * 0.13, 0.36, z + (k.rng() - 0.5) * 0.2);
     k.group.add(s);
   }
-  k.solidRect(x - 0.31, x + 0.31, z - 0.21, z + 0.21);
+  k.solidRect(x - 0.31, x + 0.31, z - 0.21, z + 0.21, 0.3); // 상자 가장자리 위
 }

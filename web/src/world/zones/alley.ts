@@ -100,7 +100,7 @@ function sideAlley(k: MapKit, minX: number, maxX: number, b: Rect): void {
   k.occluders.push(k.box(maxX - minX, 1.6, 0.2, k.mat('#b9b2a6'), mid, 0.8, b.maxZ - 0.1));
   const deck = k.box(1.8, 0.38, 1.3, k.mat('#a0784e'), mid, 0.19, 10.5);
   k.occluders.push(deck);
-  k.solidRect(mid - 0.9, mid + 0.9, 10.5 - 0.65, 10.5 + 0.65);
+  k.solidRect(mid - 0.9, mid + 0.9, 10.5 - 0.65, 10.5 + 0.65, 0.38); // 평상 윗면
   k.interests.push({ kind: 'sunspot', x: mid, z: 9.4, r: 0.8 }, { kind: 'bench', x: mid, z: 9.5, r: 0.8 });
   pot(k, minX + 0.4, 6.5);
   pot(k, maxX - 0.4, 8.2);
@@ -126,7 +126,7 @@ function parkingLot(k: MapKit, minX: number, maxX: number, b: Rect): void {
   weeds(k, maxX - 0.4, -11.5);
   for (const x of [minX, maxX]) {
     k.occluders.push(k.box(0.2, 1.4, Math.abs(b.minZ) - WALL_Z, k.mat('#b9b2a6'), x, 0.7, (b.minZ - WALL_Z) / 2));
-    k.solidRect(x - 0.1, x + 0.1, b.minZ, -WALL_Z);
+    k.solidRect(x - 0.1, x + 0.1, b.minZ, -WALL_Z, 1.4); // 주차장 옆 담
   }
 }
 
@@ -140,5 +140,5 @@ function emptyLot(k: MapKit, minX: number, maxX: number): void {
   for (let i = 0; i < 6; i++) weeds(k, range(k.rng, minX + 0.5, maxX - 0.5), range(k.rng, -8, -3.8));
   k.occluders.push(k.box(maxX - minX, 1.3, 0.2, k.mat('#b9b2a6'), (minX + maxX) / 2, 0.65, -8.5));
   groundAcUnit(k, maxX - 0.7, -8.1, 1);
-  k.solidRect(minX, maxX, -8.6, -8.4);
+  k.solidRect(minX, maxX, -8.6, -8.4, 1.3); // 공터 뒤 담
 }

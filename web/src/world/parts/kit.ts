@@ -77,7 +77,8 @@ export class MapKit {
     this.group.add(m);
   }
 
-  solidRect(minX: number, maxX: number, minZ: number, maxZ: number): void {
-    this.rects.push({ minX, maxX, minZ, maxZ });
+  /** 몸을 막는 사각형. top: 올라설 수 있는 윗면 높이(m), 없으면 올라설 수 없다 (J-0) */
+  solidRect(minX: number, maxX: number, minZ: number, maxZ: number, top?: number): void {
+    this.rects.push(top === undefined ? { minX, maxX, minZ, maxZ } : { minX, maxX, minZ, maxZ, top });
   }
 }

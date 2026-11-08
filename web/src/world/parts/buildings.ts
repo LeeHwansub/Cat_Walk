@@ -55,8 +55,9 @@ export function wall(k: MapKit, minX: number, maxX: number, f: Frontage, gaps: [
     const m = k.box(w, WALL_H, 0.2, mat, (a + c) / 2, WALL_H / 2, z);
     if (st.body === 'block') scaleUv(m.geometry, w / 0.8, WALL_H / 0.8);
     k.occluders.push(m);
-    k.solidRect(a, c, z - 0.1, z + 0.1);
-    tops.push({ minX: a, maxX: c, z, ...wallCap(k, st.cap, a, c, z) });
+    const t: WallTop = { minX: a, maxX: c, z, ...wallCap(k, st.cap, a, c, z) };
+    k.solidRect(a, c, z - 0.1, z + 0.1, t.climbable ? t.top : undefined);
+    tops.push(t);
   }
   if (gate) for (const [g0, g1] of gaps) gateParts(k, g0, g1, z, f.side);
   return tops;

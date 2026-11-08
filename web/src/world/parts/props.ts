@@ -30,9 +30,14 @@ export function car(k: MapKit, x: number, z: number, color: string, rotY: number
   k.group.add(g);
   k.occluders.push(g);
   const along = Math.abs(Math.sin(rotY)) > 0.5;
-  const hx = along ? 0.9 : 2.1;
-  const hz = along ? 2.1 : 0.9;
-  k.solidRect(x - hx, x + hx, z - hz, z + hz);
+  // 길이 방향을 세 칸으로: 트렁크 · 실내(지붕은 올라설 수 없음, 결정 2) · 보닛. 보닛·트렁크 윗면 = 몸체 위 0.97m
+  const s = along ? -Math.sin(rotY) : Math.cos(rotY);
+  for (const [l0, l1, top] of [[-2.1, -1.35, 0.97], [-1.35, 0.95, undefined], [0.95, 2.1, 0.97]] as const) {
+    const a = Math.min(l0 * s, l1 * s);
+    const b = Math.max(l0 * s, l1 * s);
+    if (along) k.solidRect(x - 0.9, x + 0.9, z + a, z + b, top);
+    else k.solidRect(x + a, x + b, z - 0.9, z + 0.9, top);
+  }
   k.interests.push({ kind: 'car', x: x + (along ? 1.2 : 0), z: z + (along ? 0 : z > 0 ? -1.2 : 1.2), r: 0.6 });
 }
 
@@ -120,7 +125,7 @@ export function bench(k: MapKit, x: number, z: number, rotY: number): void {
   const along = Math.abs(Math.sin(rotY)) > 0.5;
   const hx = along ? 0.28 : 0.88;
   const hz = along ? 0.88 : 0.28;
-  k.solidRect(x - hx, x + hx, z - hz, z + hz);
+  k.solidRect(x - hx, x + hx, z - hz, z + hz, 0.47); // 앉는 판 위 (등받이는 얇아 따로 두지 않음)
   k.interests.push({ kind: 'bench', x, z: z + (along ? 0 : 0.6), r: 0.8 });
 }
 
@@ -158,5 +163,5 @@ export function feedingShelter(k: MapKit, x: number, z: number): void {
   k.box(0.05, 0.55, 0.5, wood, x - 0.33, 0.27, z + 0.15);
   k.box(0.05, 0.55, 0.5, wood, x + 0.33, 0.27, z + 0.15);
   k.box(0.7, 0.55, 0.05, wood, x, 0.27, z + 0.38);
-  k.solidRect(x - 0.36, x + 0.36, z + 0.1, z + 0.42);
+  k.solidRect(x - 0.36, x + 0.36, z + 0.1, z + 0.42, 0.58); // 지붕 위
 }
