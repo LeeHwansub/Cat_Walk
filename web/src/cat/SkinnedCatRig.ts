@@ -5,7 +5,7 @@ import { furLength, shellCount, type ResolvedFurQuality } from './fur';
 import { MAX_SHELLS } from './furShells';
 import { setWorldQuaternion, solveTwoBoneIK } from './ik3d';
 import type { CatPose } from './pose';
-import { HEAD_LAYER, type CatRig } from './rig';
+import type { CatRig } from './rig';
 import { ClipRetarget, GROOM_BONE_MAP, RUN_BONE_MAP, type BoneMapEntry } from './retarget';
 import { ClipSampler } from './clipSampler';
 import { JUMP_POSES, LIE_POSE_BONES, LIE_POSES, type JumpPose, type LiePose } from './liePoses';
@@ -119,14 +119,8 @@ export class SkinnedCatRig implements CatRig {
   private readonly probes: { p: THREE.Vector3; n: THREE.Vector3; bone: number }[] = [];
   private readonly m4 = new THREE.Matrix4();
   private readonly rootInv = new THREE.Matrix4();
-  private readonly collar = new THREE.Group();
   /** 혀: 턱 뼈에 붙어 핥을 때 내밀었다 넣는다 */
   private readonly tongue = new THREE.Group();
-  private hasCollar = false;
-  /** 목걸이 위치: 가슴(척추 2)과 머리 뼈 기준 오프셋. 매 프레임 둘 사이(머리 쪽 60%)에 둔다 */
-  private readonly collarFromSpine = new THREE.Matrix4();
-  private readonly collarFromHead = new THREE.Matrix4();
-  private readonly collarFromNeck = new THREE.Matrix4();
   /** 털 겹: 같은 메시를 같은 뼈대에 묶어 겹마다 노멀 방향으로 부풀린다 */
   private readonly shells: { mesh: THREE.SkinnedMesh; layer: { value: number } }[] = [];
 
@@ -319,7 +313,6 @@ export class SkinnedCatRig implements CatRig {
       const motion = clip ? this.makeMotion(motions.poses, LIE_POSE_BONES.map((n) => [n, n] as BoneMapEntry), 'torso_02', clip, new THREE.Quaternion()) : null;
       if (motion) this.liePoses.push({ name, motion });
     }
-    this.buildCollar();
     this.buildTongue();
     // 캣캠: 눈 위치(머리는 캣캠 중 숨김). 가슴 뼈에 두면 달릴 때 어깨가 솟고 머리가 앞으로 나가
     // 카메라가 어깨 뒤에 갇혀 화면 아래를 가렸다 (2026-11-07). 목 뼈에 붙여 머리를 따라가게 한다
@@ -338,8 +331,6 @@ export class SkinnedCatRig implements CatRig {
     this.eyeScale = kitten ? 1.12 : 1;
     this.legScale = (kitten ? 0.86 : 1) * (this.fold ? 0.94 : 1);
     this.tailScale = kitten ? 0.8 : 1;
-    this.hasCollar = a.accessory === 'heartTag';
-    this.collar.visible = this.hasCollar && this.uniforms.uFade.value > 0.5;
     this.baseGirth = girthScale(a.build);
     this.setGirth(this.baseGirth);
     // 털 길이: 아기는 더 길고 보송하게 (도형 모델과 같은 값)
@@ -363,7 +354,6 @@ export class SkinnedCatRig implements CatRig {
   /** 3인칭 카메라가 바짝 붙었을 때 몸 전체를 흐리게 (1 = 다 보임) */
   setBodyFade(fade: number): void {
     this.uniforms.uFade.value = fade;
-    this.collar.visible = this.hasCollar && fade > 0.5;
   }
 
   twitchEar(): void {
@@ -480,34 +470,6 @@ export class SkinnedCatRig implements CatRig {
       this.model.position.y -= (low - 0.004) * w;
       this.root.updateMatrixWorld(true);
     }
-    this.updateCollar(Math.max(p.bellyUp, p.sideLie, p.loafPose, p.napPose, p.wrapPose));
-  }
-
-  /**
-   * 목걸이를 가슴 뼈와 머리 뼈가 각각 놓을 자리 사이(머리 쪽 60%)에 둔다.
-   * 누운 자세(lieW)에서는 머리가 가슴에 비해 크게 돌아 그 사이가 목 밖으로 벗어나므로 목 뼈 기준 자리로 옮긴다
-   */
-  private updateCollar(lieW: number): void {
-    const rootInv = this.rootInv.copy(this.root.matrixWorld).invert();
-    const place = (bone: THREE.Object3D, off: THREE.Matrix4, pos: THREE.Vector3, q: THREE.Quaternion, sc: THREE.Vector3) =>
-      this.m4.copy(rootInv).multiply(bone.matrixWorld).multiply(off).decompose(pos, q, sc);
-    const pa = new THREE.Vector3();
-    const qa = new THREE.Quaternion();
-    const sa = new THREE.Vector3();
-    place(this.spine2, this.collarFromSpine, pa, qa, sa);
-    const pb = new THREE.Vector3();
-    const qb = new THREE.Quaternion();
-    const sb = new THREE.Vector3();
-    place(this.head, this.collarFromHead, pb, qb, sb);
-    this.collar.position.lerpVectors(pa, pb, 0.6);
-    this.collar.quaternion.copy(qa).slerp(qb, 0.6);
-    if (lieW > 0.001) {
-      place(this.neck, this.collarFromNeck, pb, qb, sb);
-      this.collar.position.lerp(pb, lieW);
-      this.collar.quaternion.slerp(qb, lieW);
-    }
-    // 크기는 가슴 기준 (머리 크기 배율·캣캠 머리 숨김의 영향을 받지 않게). 누우면 목이 늘어나 가늘어져 조금 줄인다
-    this.collar.scale.copy(sa).multiplyScalar(1 - 0.18 * lieW);
   }
 
   // ---------------------------------------------------------------- 구성
@@ -690,46 +652,6 @@ export class SkinnedCatRig implements CatRig {
     this.tongue.visible = false;
     // 입 아래쪽 (주둥이·입 정점 분석: 높이 2.35~2.51, 앞 끝 2.35 모델 단위), 살짝 아래로 기울여
     this.attachToBone(this.tongue, this.mouth, new THREE.Vector3(0, 2.36, 2.2), 0.45);
-  }
-
-  /** 분홍 목걸이 + 하트 태그 (뽀리) */
-  private buildCollar(): void {
-    const band = new THREE.MeshStandardMaterial({ color: '#e0607e', roughness: 0.55 });
-    const tagMat = new THREE.MeshStandardMaterial({ color: '#f39ab4', roughness: 0.3, metalness: 0.35 });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.007, 8, 32), band);
-    ring.rotation.x = Math.PI / 2;
-    ring.scale.set(1.12, 1, 1);
-    this.collar.add(ring);
-    const heart = new THREE.Shape();
-    heart.moveTo(0, -0.5);
-    heart.bezierCurveTo(-0.15, -0.3, -0.55, -0.05, -0.5, 0.25);
-    heart.bezierCurveTo(-0.45, 0.55, -0.1, 0.55, 0, 0.3);
-    heart.bezierCurveTo(0.1, 0.55, 0.45, 0.55, 0.5, 0.25);
-    heart.bezierCurveTo(0.55, -0.05, 0.15, -0.3, 0, -0.5);
-    const tag = new THREE.Mesh(new THREE.ExtrudeGeometry(heart, { depth: 0.12, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: 2 }), tagMat);
-    tag.scale.setScalar(0.026);
-    tag.position.set(0, -0.018, 0.07);
-    this.collar.add(tag);
-    this.collar.traverse((o) => {
-      o.castShadow = true;
-      o.layers.set(HEAD_LAYER);
-    });
-    // 목걸이: 한 뼈에만 붙이면 그루밍처럼 목·가슴이 따로 돌 때 기울어 몸 밖으로 삐져나온다.
-    // 이 모델은 목 둘레 정점이 대부분 머리 뼈를 따른다. 기준 자세에서 가슴·머리 뼈 기준 오프셋을 구해 두고
-    // 매 프레임 둘 사이에 둔다 (updateCollar)
-    this.root.add(this.collar);
-    this.root.updateMatrixWorld(true);
-    const at = new THREE.Matrix4().compose(
-      new THREE.Vector3(0, 2.05, 1.12),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, 0, 0)),
-      new THREE.Vector3(1, 1, 1).multiplyScalar(1 / MODEL_SCALE),
-    );
-    const inRoot = (b: THREE.Object3D) => this.rootInv.copy(this.root.matrixWorld).invert().multiply(b.matrixWorld).clone();
-    const collarRest = this.model.matrix.clone().multiply(at); // 루트 기준 (성체 m)
-    this.collarFromSpine.copy(inRoot(this.spine2).invert().multiply(collarRest));
-    this.collarFromHead.copy(inRoot(this.head).invert().multiply(collarRest));
-    this.collarFromNeck.copy(inRoot(this.neck).invert().multiply(collarRest));
-    this.updateCollar(0);
   }
 
   // ---------------------------------------------------------------- 애니메이션

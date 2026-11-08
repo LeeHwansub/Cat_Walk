@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CatAppearance } from '../src/cat/appearance';
 import { applyAppearanceToUniforms, createCatSkinUniforms, pawPadColor } from '../src/cat/catSkin';
 
-const base: CatAppearance = { furColor: '#808080', pattern: 'solid', eyeColor: '#c9a227', stage: 'adult', size: 1, build: 1, ear: 'up', accessory: 'none' };
+const base: CatAppearance = { furColor: '#808080', pattern: 'solid', eyeColor: '#c9a227', stage: 'adult', size: 1, build: 1, ear: 'up' };
 const lum = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 const isPink = (c: THREE.Color) => c.r > c.g * 1.2 && c.r > c.b * 1.2 && lum(c) > 0.3;
 

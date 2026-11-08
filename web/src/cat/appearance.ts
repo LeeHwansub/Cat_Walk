@@ -1,8 +1,6 @@
 export type PatternId = 'solid' | 'tuxedo' | 'cheese' | 'mackerel' | 'calico' | 'tabbyWhite';
 /** 귀 형태: 선 귀 / 접힌 귀(스코티시폴드) (D-25) */
 export type EarType = 'up' | 'fold';
-/** 목걸이 */
-export type Accessory = 'none' | 'heartTag';
 export type GrowthStage = 'kitten' | 'adult';
 
 export interface CatAppearance {
@@ -15,7 +13,6 @@ export interface CatAppearance {
   /** 체형: 날씬(0.8) ↔ 통통(1.3). 몸통 둘레만 바뀌고 길이는 그대로 */
   build: number;
   ear: EarType;
-  accessory: Accessory;
 }
 
 /** 체형 조절 범위 (사용자 요청 2026-11-05) */
@@ -63,11 +60,6 @@ export const EAR_TYPES: { id: EarType; label: string }[] = [
   { id: 'fold', label: '접힌 귀' },
 ];
 
-export const ACCESSORIES: { id: Accessory; label: string }[] = [
-  { id: 'none', label: '없음' },
-  { id: 'heartTag', label: '분홍 하트' },
-];
-
 export const FUR_COLORS: { hex: string; label: string }[] = [
   { hex: '#f4efe6', label: '흰색' },
   { hex: '#e39a4f', label: '주황' },
@@ -88,14 +80,11 @@ export const EYE_COLORS: { hex: string; label: string }[] = [
 ];
 
 export const PRESETS: { label: string; appearance: CatAppearance }[] = [
-  // 사용자 고양이 (참고: _box/character/porri-sheet.png, leo-sheet.png)
-  { label: '뽀리', appearance: { furColor: '#7d5d3e', pattern: 'tabbyWhite', eyeColor: '#b5c23a', stage: 'adult', size: 1, build: 1.18, ear: 'fold', accessory: 'heartTag' } },
-  { label: '레오', appearance: { furColor: '#e8b27a', pattern: 'cheese', eyeColor: '#b5c23a', stage: 'adult', size: 1, build: 1.15, ear: 'fold', accessory: 'none' } },
-  { label: '치즈냥', appearance: { furColor: '#e39a4f', pattern: 'cheese', eyeColor: '#d9b53a', stage: 'adult', size: 1, build: 1, ear: 'up', accessory: 'none' } },
-  { label: '고등어', appearance: { furColor: '#8d8a86', pattern: 'mackerel', eyeColor: '#7fae4a', stage: 'adult', size: 1, build: 1, ear: 'up', accessory: 'none' } },
-  { label: '턱시도', appearance: { furColor: '#2b2a2c', pattern: 'tuxedo', eyeColor: '#d9b53a', stage: 'adult', size: 1, build: 1, ear: 'up', accessory: 'none' } },
-  { label: '삼색이', appearance: { furColor: '#e39a4f', pattern: 'calico', eyeColor: '#c9822f', stage: 'adult', size: 1, build: 1, ear: 'up', accessory: 'none' } },
-  { label: '흰냥이', appearance: { furColor: '#f4efe6', pattern: 'solid', eyeColor: '#5f9fd6', stage: 'adult', size: 1, build: 1, ear: 'up', accessory: 'none' } },
+  { label: '치즈냥', appearance: { furColor: '#e39a4f', pattern: 'cheese', eyeColor: '#d9b53a', stage: 'adult', size: 1, build: 1, ear: 'up' } },
+  { label: '고등어', appearance: { furColor: '#8d8a86', pattern: 'mackerel', eyeColor: '#7fae4a', stage: 'adult', size: 1, build: 1, ear: 'up' } },
+  { label: '턱시도', appearance: { furColor: '#2b2a2c', pattern: 'tuxedo', eyeColor: '#d9b53a', stage: 'adult', size: 1, build: 1, ear: 'up' } },
+  { label: '삼색이', appearance: { furColor: '#e39a4f', pattern: 'calico', eyeColor: '#c9822f', stage: 'adult', size: 1, build: 1, ear: 'up' } },
+  { label: '흰냥이', appearance: { furColor: '#f4efe6', pattern: 'solid', eyeColor: '#5f9fd6', stage: 'adult', size: 1, build: 1, ear: 'up' } },
 ];
 
 export function defaultAppearance(): CatAppearance {
@@ -105,10 +94,6 @@ export function defaultAppearance(): CatAppearance {
 
 export function isEarType(v: unknown): v is EarType {
   return v === 'up' || v === 'fold';
-}
-
-export function isAccessory(v: unknown): v is Accessory {
-  return v === 'none' || v === 'heartTag';
 }
 
 export function isHexColor(v: unknown): v is string {
