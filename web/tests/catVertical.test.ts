@@ -52,14 +52,17 @@ describe('고양이 세로 움직임 (J-1)', () => {
     expect(c.y).toBe(0);
   });
 
-  it('담 위에서는 가장자리에서 멈추고 떨어지지 않는다 (옆으로 밀어도)', () => {
+  it('담 위에서는 가장자리에서 멈추고 떨어지지 않는다 (계속 밀어 뛰어내리기 전까지, J-3)', () => {
     const c = new CatController(world, 0.4);
     c.x = 0;
     c.z = 5;
     c.y = 1.36;
-    run(c, 200, 0, -1); // 길 쪽으로 밀기
-    expect(c.y).toBeCloseTo(1.36);
-    expect(c.z).toBeGreaterThanOrEqual(4.87);
+    for (let i = 0; i < 200 && !c.jumping; i++) {
+      c.moveDirect(0, -1, dt); // 길 쪽으로 밀기
+      if (c.jumping) break;
+      expect(c.y).toBeCloseTo(1.36);
+      expect(c.z).toBeGreaterThanOrEqual(4.87);
+    }
   });
 
   it('담 위에서 비스듬히 밀면 담을 따라 미끄러지며 걷는다', () => {
@@ -73,15 +76,18 @@ describe('고양이 세로 움직임 (J-1)', () => {
     expect(c.y).toBeCloseTo(1.36);
   });
 
-  it('담 끝에서도 멈춘다', () => {
+  it('담 끝에서도 멈춘다 (뛰어내리기 전까지)', () => {
     const c = new CatController(world, 0.4);
     c.x = 4.5;
     c.z = 5;
     c.y = 1.36;
     c.heading = Math.PI / 2;
-    run(c, 300, 1, 0);
-    expect(c.x).toBeLessThanOrEqual(5);
-    expect(c.y).toBeCloseTo(1.36);
+    for (let i = 0; i < 300 && !c.jumping; i++) {
+      c.moveDirect(1, 0, dt);
+      if (c.jumping) break;
+      expect(c.x).toBeLessThanOrEqual(5);
+      expect(c.y).toBeCloseTo(1.36);
+    }
   });
 
   it('발밑이 비면 중력으로 떨어져 바닥에 선다', () => {

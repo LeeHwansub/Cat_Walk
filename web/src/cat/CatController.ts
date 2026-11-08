@@ -1,5 +1,5 @@
 import { groundAt, resolveCircle, STEP_UP, type CollisionWorld } from '../world/collision';
-import { airTime, findLanding, JUMP, jumpPoint, jumpWeights, type JumpPhase, type JumpWeights } from './jump';
+import { airTime, findLanding, JUMP, jumpPoint, jumpWeights, type JumpPhase, type JumpWeights, type Landing } from './jump';
 
 // 걷기 속도 (m/s, 성체 기준). glb 모델의 걷기 클립 보폭에 맞춰 다리가 너무 빨리 움직이지 않게 낮춤 (2026-11-07 사용자 요청)
 export const WALK_SPEED = 0.45;
@@ -25,6 +25,12 @@ const RADIUS = 0.16;
 const STEP_RATE = 1.5;
 /** 중력 가속도 (m/s²) */
 export const GRAVITY = 9.8;
+/** 가장자리를 이만큼(초) 계속 밀면 그쪽으로 뛰어내린다 (J-3) */
+export const PUSH_OFF = 0.45;
+/** 이보다 좁은 윗면은 담처럼 길이 방향으로 걷는다 (m, 성체 기준) */
+const NARROW = 0.5;
+/** 좁은 윗면에서 미는 방향이 담 방향에서 이 각도 안이면 담 방향으로 맞춘다 */
+const ALIGN = (65 * Math.PI) / 180;
 
 const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -43,6 +49,8 @@ export class CatController {
   y = 0;
   /** 세로 속도 (m/s, 위 +). 턱보다 큰 높이에서 떨어질 때(점프 착지) 쓴다 */
   vy = 0;
+  /** 높은 곳 가장자리를 계속 민 시간 (초, J-3) */
+  private edgePush = 0;
   /** 진행 중인 점프 (J-2). 점프 중에는 이동 입력을 받지 않는다 */
   private jumpState: { phase: JumpPhase; t: number; air: number; x0: number; z0: number; y0: number; x1: number; z1: number; y1: number; lead: number } | null = null;
 
@@ -78,14 +86,21 @@ export class CatController {
    */
   jump(): boolean {
     if (this.jumpState) return false;
-    const r = RADIUS * this.scale * Math.sqrt(this.girth);
-    const to = findLanding(this.world, this.x, this.z, this.y, this.heading, this.scale, r) ?? { x: this.x, z: this.z, y: this.y, lead: 0 };
+    this.startJump(findLanding(this.world, this.x, this.z, this.y, this.heading, this.scale, this.radius) ?? { x: this.x, z: this.z, y: this.y, lead: 0 });
+    return true;
+  }
+
+  private get radius(): number {
+    return RADIUS * this.scale * Math.sqrt(this.girth);
+  }
+
+  private startJump(to: Landing): void {
     const dist = Math.hypot(to.x - this.x, to.z - this.z);
     const air = dist < 1e-3 ? JUMP.hop : airTime(dist, to.y - this.y, this.scale);
     this.jumpState = { phase: 'crouch', t: 0, air, x0: this.x, z0: this.z, y0: this.y, x1: to.x, z1: to.z, y1: to.y, lead: to.lead };
     this.speed = 0;
     this.vy = 0;
-    return true;
+    this.edgePush = 0;
   }
 
   /** 점프 자세 비율 (점프 중이 아니면 모두 0) */
@@ -154,11 +169,12 @@ export class CatController {
       this.brake(dt);
       return;
     }
-    const diff = wrapAngle(Math.atan2(dirX, dirZ) - this.heading);
+    const want = Math.atan2(dirX, dirZ);
+    const diff = wrapAngle(this.ledgeHeading(want) - this.heading);
     this.turn(diff, dt, 1.6);
     const top = this.running ? RUN_SPEED : MANUAL_SPEED;
     this.accelerate(top * this.speedScale * (Math.abs(diff) > 1.2 ? 0.35 : 1), dt);
-    this.advance(dt);
+    this.advanceAndPush(want, dt);
   }
 
   /** 탱크식 이동: 좌우는 회전, 앞뒤는 전진 (캣캠 직접 조작) */
@@ -166,9 +182,61 @@ export class CatController {
     if (this.jumpState) return this.stepJump(dt);
     this.turnRate = -turnInput * TURN_RATE * 0.6;
     this.heading = wrapAngle(this.heading + this.turnRate * dt);
-    if (forwardInput > 0.01) this.accelerate((this.running ? RUN_SPEED : MANUAL_SPEED) * this.speedScale * 0.8, dt);
-    else this.brake(dt);
+    if (forwardInput > 0.01) {
+      this.accelerate((this.running ? RUN_SPEED : MANUAL_SPEED) * this.speedScale * 0.8, dt);
+      this.advanceAndPush(this.heading, dt);
+    } else this.brake(dt);
+  }
+
+  /**
+   * 좁은 윗면(담) 위에서는 미는 방향이 담 방향에 가까우면 담 방향으로 바꾼다 (J-3).
+   * 바닥·넓은 윗면이거나 담을 가로질러 밀면 그대로
+   */
+  private ledgeHeading(want: number): number {
+    if (this.y <= STEP_UP) return want;
+    const reach = (ux: number, uz: number) => {
+      let d = 0;
+      while (d < NARROW * this.scale && !this.dropsAt(this.x + ux * (d + 0.02), this.z + uz * (d + 0.02))) d += 0.02;
+      return d;
+    };
+    const wx = reach(1, 0) + reach(-1, 0);
+    const wz = reach(0, 1) + reach(0, -1);
+    const narrow = NARROW * this.scale;
+    // 한 축만 좁으면 담: 걷는 방향은 다른 축
+    let axis: number | null = null;
+    if (wz < narrow && wx >= narrow) axis = Math.PI / 2; // 담이 x 방향
+    else if (wx < narrow && wz >= narrow) axis = 0; // 담이 z 방향
+    if (axis === null) return want;
+    for (const a of [axis, axis + Math.PI]) {
+      if (Math.abs(wrapAngle(want - a)) < ALIGN) return wrapAngle(a);
+    }
+    return want;
+  }
+
+  /**
+   * 한 걸음 옮기고, 높은 곳 가장자리에서 막혀 있는데 그 너머(미는 쪽)가 낮으면 미는 시간을 잰다.
+   * PUSH_OFF만큼 계속 밀면 그쪽으로 뛰어내린다. 건물 쪽처럼 내려갈 곳이 없으면 뛰지 않는다 (J-3)
+   */
+  private advanceAndPush(want: number, dt: number): void {
+    const x0 = this.x;
+    const z0 = this.z;
     this.advance(dt);
+    const ux = Math.sin(want);
+    const uz = Math.cos(want);
+    const ahead = 0.3 * this.scale;
+    const stuck = Math.hypot(this.x - x0, this.z - z0) < 0.15 * MANUAL_SPEED * this.speedScale * dt;
+    const facing = Math.abs(wrapAngle(want - this.heading)) < 0.6;
+    if (this.y > STEP_UP && stuck && facing && this.dropsAt(this.x + ux * ahead, this.z + uz * ahead)) {
+      this.edgePush += dt;
+      if (this.edgePush >= PUSH_OFF) {
+        this.edgePush = 0;
+        const to = findLanding(this.world, this.x, this.z, this.y, want, this.scale, this.radius);
+        if (to && to.y < this.y) {
+          this.heading = want;
+          this.startJump(to);
+        }
+      }
+    } else this.edgePush = 0;
   }
 
   /** 제자리에서 목표 방향으로 몸을 돌린다 */
@@ -229,7 +297,7 @@ export class CatController {
     }
     const dx = Math.sin(this.heading) * this.speed * dt;
     const dz = Math.cos(this.heading) * this.speed * dt;
-    const rad = RADIUS * this.scale * Math.sqrt(this.girth);
+    const rad = this.radius;
     let r = resolveCircle(this.world, this.x + dx, this.z + dz, rad, this.y);
     // 높은 곳 가장자리에서는 떨어지지 않는다: 한 축씩 미끄러져 보고, 그래도 안 되면 멈춘다 (내려가려면 점프, J-2)
     if (this.y > 0 && this.dropsAt(r.x, r.z)) {
