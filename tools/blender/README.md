@@ -5,7 +5,7 @@ Blender 5.4 명령줄(`-b`)로 실행하는 고양이 자세 스크립트. 화�
 | 파일 | 내용 |
 |---|---|
 | `posekit.py` | 공통 도구: `cat.glb` 불러오기, 고양이 기준 축(앞·위·왼쪽) 계산, 뼈 돌리기, 렌더 |
-| `poses.py` | 누운 자세 5개(`bellyUp` 배 보이기, `sideLie` 옆으로 눕기, `loafPose` 식빵, `napPose` 낮잠, `wrapPose` 꼬리 감기)를 잡아 렌더하고 `cat-poses.glb`로 내보냄. 환경 변수 `POSES=loafPose,napPose`로 일부만 렌더 |
+| `poses.py` | 누운 자세 5개(`bellyUp` 배 보이기, `sideLie` 옆으로 눕기, `loafPose` 식빵, `napPose` 낮잠, `wrapPose` 꼬리 감기)와 점프 자세 4개(`jumpCrouch` 웅크리기, `jumpLaunch` 도약, `jumpAir` 공중, `jumpLand` 착지)를 잡아 렌더하고 `cat-poses.glb`로 내보냄. 환경 변수 `POSES=loafPose,napPose`로 일부만 렌더 |
 
 ## 실행 (저장소 루트에서)
 
