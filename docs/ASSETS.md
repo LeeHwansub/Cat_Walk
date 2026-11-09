@@ -145,6 +145,11 @@ D-18에 따라 사용자가 제공한 파일을 적용했다 (1.1절). 출처는
 - 원본 모델(Toon Cat FREE, CC BY 4.0)의 뼈대를 쓰므로 `CREDITS.md` 1장 수정 내역에 기록.
 - 자세 스크립트: `tools/blender/poses.py`(자세)·`posekit.py`(공통 도구). 실행 방법은 `tools/blender/README.md`. 저장소에서 다시 실행하면 지금 파일과 같은 glb가 나온다 (2026-11-07 확인).
 
+### 6.4 포즈 메뉴 실루엣: assets/ui/poses/*.png (2026-11-09, D-55)
+- 직접 만든 그림. 게임 고양이(`cat.glb`, 기본 성체·선 귀)를 자세마다 옆에서 검은 재질로 렌더하고, 밝기를 투명도로 바꿔 잘라낸 128×112 PNG 8장(각 3~5KB). 꼬리 감기는 꼬리가 감긴 반대쪽 옆에서 찍고 좌우를 뒤집는다(`back`).
+- 만드는 스크립트: `tools/pose-icons/capture.mjs` (개발 서버가 켜져 있을 때 `node tools/pose-icons/capture.mjs`). 헤드리스 Chrome으로 게임을 열어 `doPose`로 자세를 취하게 한 뒤 찍는다.
+- 원본 모델(Toon Cat FREE, CC BY 4.0)의 모양을 쓰므로 출처 표기는 기준 모델과 같다.
+
 ## 7. 문의 창 고양이: Black Cat (2026-11-07, D-34)
 - Sketchfab "Black Cat" — Kinga Kroliczek, CC BY 4.0 (2023-10-16 공개, API·glb 메타데이터로 확인). 뼈대·동작 없는 정지 모델(메시 6개, 텍스처 1장).
 - `_box/blender/black_cat.glb`를 수정하지 않고 `web/public/assets/models/black-cat.glb`로 복사. 정보 페이지 문의 창에서만 쓰고, 3D는 창을 열 때만 불러온다.
