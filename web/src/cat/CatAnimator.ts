@@ -44,6 +44,11 @@ const GAZE_WEIGHT: Partial<Record<AnimBehavior, number>> = {
 const MAX_EYE_YAW = 0.3;
 const MAX_EYE_PITCH = 0.2;
 
+/** 그루밍 핥기: 고개 숙임(rad), 까딱임 크기(rad)·빠르기(rad/s). 자세는 부드럽게 따라가므로 실제 까딱임은 이보다 작다 */
+const GROOM_LICK_PITCH = 0.85;
+const GROOM_BOB = 0.15;
+const GROOM_BOB_RATE = 5;
+
 /** 일어서기 속도. 앉은 자세(1)에서 이동 가능 기준(0.12)까지 약 0.35초 */
 const STAND_UP_RATE = 6;
 
@@ -137,7 +142,7 @@ export class CatAnimator {
         t.headYaw = Math.sin(e * 0.3 + this.lookSeed) * 0.4;
         break;
       case 'groom':
-        this.groom(t, input.progress);
+        this.groom(t, input.progress, e);
         break;
       case 'nap':
         t.lie = 1;
@@ -303,7 +308,7 @@ export class CatAnimator {
   }
 
   /** 그루밍: 앉기 → 앞발 들기 → 앞발 핥기 → 얼굴 닦기 → 앞발 내리기 (기획서 5.2) */
-  private groom(t: CatPose, prog: number): void {
+  private groom(t: CatPose, prog: number, elapsed: number): void {
     t.sit = 1;
     t.tailUp = 0;
     t.tailWag = 0.05;
@@ -311,14 +316,18 @@ export class CatAnimator {
     const toFace = smooth(0.5, 0.6, prog);
     t.pawLift = lift;
     t.pawToFace = toFace;
-    // 동작 클립이 있는 모델(glb)은 그루밍 동작(grumming.glb)을 진행 위치에 맞춰 재생한다
-    t.groom = 1;
+    // 옮겨 온 그루밍 동작(grumming.glb)은 쓰지 않는다: 몸이 엉거주춤해지고 턱이 벌어져 이·입속이 보였다 (사용자 결정 2026-11-09).
+    // 바로 앉은 자세에서 앞발을 드는 코드 동작으로 한다. 입은 다문다
+    t.groom = 0;
     t.groomPhase = prog;
-    t.lick = lift * (1 - toFace * 0.6);
-    t.headPitch = lerp(0.05, lerp(0.55, 0.2, toFace), lift);
+    t.lick = 0;
+    // 핥기: 고개를 앞발 쪽으로 숙이고 핥는 리듬으로 위아래로 까딱인다 (사용자 요청 2026-11-09). 얼굴 닦기 때는 덜 숙인다
+    const licking = lift * (1 - toFace);
+    const bob = Math.sin(elapsed * GROOM_BOB_RATE) * GROOM_BOB * licking;
+    t.headPitch = lerp(0.05, lerp(GROOM_LICK_PITCH, 0.2, toFace), lift) + bob;
     t.headTilt = toFace * 0.3 * lift;
     t.headYaw = -0.15 * lift;
-    t.eyesClosed = 0.45 * lift;
+    t.eyesClosed = 0.75 * lift;
   }
 }
 

@@ -26,6 +26,13 @@ const STANCE = 0.62;
 const SPINE_SIT = -0.45;
 const SPINE_LIE = -0.03;
 const SPINE_STAND = 0;
+/** 꼬리 감기: 자세 파일 위에 목·머리를 더 숙이는 각도 (rad) */
+const WRAP_NECK_BOW = 0.55;
+const WRAP_HEAD_BOW = 0.35;
+/** 그루밍 앞발 목표 (성체 m): 핥을 때 입보다 앞·아래, 얼굴 닦을 때 볼 바깥 옆 */
+const GROOM_LICK_AHEAD = 0.05;
+const GROOM_LICK_DOWN = 0.05;
+const GROOM_WIPE_X = -0.085;
 const SPINE_MAN = -1.15;
 const STRETCH_PITCH = 0.38;
 const ROLL_MAX = 2.75;
@@ -470,6 +477,15 @@ export class SkinnedCatRig implements CatRig {
       this.model.position.y -= (low - 0.004) * w;
       this.root.updateMatrixWorld(true);
     }
+    // 꼬리 감기 자세 파일은 고개를 들고 있어, 목·머리를 더 숙여 몸 쪽에 묻는다 (2026-11-09)
+    const bow = p.wrapPose * (1 - p.float);
+    if (bow > 0.001) {
+      this.neck.quaternion.multiply(this.q1.setFromEuler(this.euler.set(WRAP_NECK_BOW * bow, 0, 0)));
+      this.head.quaternion.multiply(this.q1.setFromEuler(this.euler.set(WRAP_HEAD_BOW * bow, 0, 0)));
+      this.root.updateMatrixWorld(true);
+    }
+    // 꼬리 감기는 몸 자세를 모두 적용한 뒤에 계산한다. 먼저 감으면 뒤에 웅크리는 몸통에 끌려 꼬리가 뒤로 뻗는다 (2026-11-09)
+    if (p.tailWrap > 0.001) this.wrapTail(p, time);
   }
 
   // ---------------------------------------------------------------- 구성
@@ -697,27 +713,36 @@ export class SkinnedCatRig implements CatRig {
       const comp = i === 0 ? -spinePitch : 0;
       this.setRel(this.tail[i], this.q1.setFromEuler(this.euler.set(lerp(downCurve, upCurve, p.tailUp) + comp, curlSide + wave, 0)));
     }
-    if (p.tailWrap > 0.001) this.wrapTail(p, time);
   }
 
   /**
-   * 꼬리 감기: 꼬리 뿌리에서 엉덩이 뒤 바닥으로 내려간 뒤 몸 옆을 원을 따라 돌아 앞을 향한다.
+   * 꼬리 감기: 꼬리 뿌리에서 곧바로 몸 옆을 원으로 돌며 바닥으로 내려가(나선), 앞발 쪽을 향한다.
+   * 곧게 바닥까지 내린 뒤 돌면 꼬리 길이 대부분이 내려가는 데 쓰여 끝이 엉덩이 뒤에 남았다 (2026-11-09).
    * 각 마디가 이 경로 방향을 향하게 하는 회전으로 섞는다 (도형 모델과 같은 방식).
    */
   private wrapTail(p: CatPose, time: number): void {
     const toRoot = (o: THREE.Object3D, out: THREE.Vector3) => this.root.worldToLocal(o.getWorldPosition(out));
     const base = toRoot(this.tail[0], this.v2.set(0, 0, 0)).clone();
-    const hipZ = toRoot(this.legs[0].bones[0], this.v3).z;
     const groundY = 0.016;
-    const r = 0.1 * this.girth + 0.028;
-    const cz = hipZ - 0.02;
-    const startA = 0.25;
-    const start = new THREE.Vector3(r * Math.sin(startA), groundY, cz - r * Math.cos(startA));
-    const drop = base.distanceTo(start);
+    const r = 0.14 * this.girth; // 몸 옆에 붙는 반지름 (바닥 근처 몸 폭 약 0.11 + 꼬리 굵기)
+    const cz = base.z + r; // 원이 꼬리 뿌리에서 시작하도록 중심을 바로 앞에
+    const dropA = 1.2; // 이 각도까지 돌면서 바닥으로 내려간다
+    const pathAt = (a: number, out: THREE.Vector3) => {
+      const k = Math.max(0, 1 - a / dropA);
+      return out.set(base.x + r * Math.sin(a), groundY + (base.y - groundY) * k * k, cz - r * Math.cos(a));
+    };
+    // 경로를 잘게 나눠 길이(d) → 위치로 바꾼다
+    const pts: THREE.Vector3[] = [];
+    const lens: number[] = [0];
+    for (let i = 0; i <= 96; i++) {
+      pts.push(pathAt((i / 96) * Math.PI * 1.6, new THREE.Vector3()));
+      if (i > 0) lens.push(lens[i - 1] + pts[i].distanceTo(pts[i - 1]));
+    }
     const at = (d: number, out: THREE.Vector3) => {
-      if (d <= drop) return out.lerpVectors(base, start, d / drop);
-      const a = startA + (d - drop) / r;
-      return out.set(r * Math.sin(a), groundY, cz - r * Math.cos(a));
+      let i = 1;
+      while (i < lens.length - 1 && lens[i] < d) i++;
+      const t = Math.min(1, Math.max(0, (d - lens[i - 1]) / (lens[i] - lens[i - 1])));
+      return out.lerpVectors(pts[i - 1], pts[i], t);
     };
     const rootQInv = this.root.getWorldQuaternion(this.q1).invert().clone();
     let d = 0;
@@ -787,7 +812,12 @@ export class SkinnedCatRig implements CatRig {
     if (leg.front && leg.side === -1 && p.pawLift > 0.001) {
       const m = toRoot(this.mouth, new THREE.Vector3());
       const wipe = Math.sin(this.lastTime * 7) * 0.015 * p.pawToFace;
-      const g = new THREE.Vector3(lerp(m.x - 0.01, -0.03, p.pawToFace), lerp(m.y - 0.035, m.y + 0.03 + wipe, p.pawToFace), lerp(m.z + 0.01, m.z - 0.03, p.pawToFace));
+      // 핥기: 입보다 앞·아래(발이 턱을 뚫지 않게). 얼굴 닦기: 볼 바깥 옆으로 (머리 속에 묻히지 않게, 2026-11-09)
+      const g = new THREE.Vector3(
+        lerp(m.x - 0.01, GROOM_WIPE_X, p.pawToFace),
+        lerp(m.y - GROOM_LICK_DOWN, m.y + wipe, p.pawToFace),
+        lerp(m.z + GROOM_LICK_AHEAD, m.z - 0.05, p.pawToFace),
+      );
       target.lerp(g, p.pawLift);
     }
 

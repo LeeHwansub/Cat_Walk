@@ -14,12 +14,31 @@ function run(a: CatAnimator, over: Partial<AnimInput>, seconds: number) {
 }
 
 describe('그루밍 동작 (사용자 제공 grumming.glb 옮기기)', () => {
-  it('그루밍 중에는 그루밍 동작 비율이 1로 올라가고, 진행 위치를 그대로 넘긴다', () => {
+  it('그루밍은 코드 동작으로: 앉아서 앞발을 들고, 원본 동작(grumming.glb)은 쓰지 않는다 (사용자 결정 2026-11-09)', () => {
     const a = new CatAnimator();
-    const p = run(a, { behavior: 'groom', progress: 0.4 }, 2);
-    expect(p.groom).toBeGreaterThan(0.95);
-    expect(p.groomPhase).toBeCloseTo(0.4);
+    const p = run(a, { behavior: 'groom', progress: 0.3 }, 2);
+    expect(p.groom).toBeLessThan(0.05); // 옮긴 동작은 몸이 엉거주춤해져 끈다
     expect(p.sit).toBeGreaterThan(0.9); // 앉아서 한다
+    expect(p.pawLift).toBeGreaterThan(0.9);
+  });
+
+  it('그루밍 중에는 입을 다물고(이·입속이 보이지 않게) 눈을 지그시 감는다', () => {
+    const p = run(new CatAnimator(), { behavior: 'groom', progress: 0.3 }, 2);
+    expect(p.lick).toBeLessThan(0.05);
+    expect(p.eyesClosed).toBeGreaterThan(0.6);
+  });
+
+  it('핥는 동안 고개를 앞발 쪽으로 숙이고 위아래로 까딱인다 (사용자 요청 2026-11-09)', () => {
+    const a = new CatAnimator();
+    const dt = 1 / 60;
+    const pitches: number[] = [];
+    for (let t = 0; t < 4; t += dt) {
+      a.update(input({ behavior: 'groom', progress: 0.3, elapsed: t }), dt);
+      if (t > 2) pitches.push(a.pose.headPitch);
+    }
+    const mean = pitches.reduce((s, v) => s + v, 0) / pitches.length;
+    expect(mean).toBeGreaterThan(0.7); // 예전 0.55보다 더 숙인다
+    expect(Math.max(...pitches) - Math.min(...pitches)).toBeGreaterThan(0.08); // 까딱임
   });
 
   it('그루밍이 끝나면 비율이 다시 0으로 내려간다', () => {
