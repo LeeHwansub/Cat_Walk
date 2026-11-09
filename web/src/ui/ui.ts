@@ -3,6 +3,7 @@ import { isTouchDevice, VirtualJoystick } from './joystick';
 import { BUILD_RANGE, clampBuild, clampSize, EAR_TYPES, EYE_COLORS, FUR_COLORS, PATTERNS, PRESETS, SIZE_RANGE, type CatAppearance, type GrowthStage } from '../cat/appearance';
 import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
+import { createPoseMenu } from './poseMenuView';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -125,6 +126,13 @@ export function bindUi(game: Game): void {
   btnMode.onclick = () => game.toggleMode();
   btnCam.onclick = () => game.toggleCamera();
   $('btn-feed').onclick = () => game.giveFood();
+  // 포즈 메뉴: 고양이 둘레에 자세 실루엣을 펼친다 (P 키도)
+  const poseMenu = createPoseMenu(hud, game);
+  $('btn-pose').onclick = (e) => {
+    e.stopPropagation();
+    poseMenu.toggle();
+  };
+  game.onPoseKey = () => poseMenu.toggle();
   $('btn-settings').onclick = () => openSettings();
 
   game.onHud = (s: HudState) => {
@@ -163,6 +171,7 @@ export function bindUi(game: Game): void {
   };
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'Escape') return;
+    if (poseMenu.isOpen()) return poseMenu.close();
     if (settings.classList.contains('hidden')) {
       if (game.phase === 'play') openSettings();
     } else show(settings, false);

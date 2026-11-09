@@ -22,6 +22,7 @@ import { FoodBowl } from './systems/food';
 import { feed, tickHunger, type ActivityState } from './systems/hunger';
 import { Resident } from './systems/npc';
 import { findLanding } from './cat/jump';
+import { PoseHold } from './behavior/poseHold';
 import { isFree, pathClear, STEP_UP } from './world/collision';
 import { buildNeighborhood, type Interest, type Neighborhood } from './world/map/neighborhood';
 import { Stage } from './world/scene';
@@ -48,6 +49,8 @@ export class Game {
   manualLocked = false;
   save: SaveData;
   onHud: (s: HudState) => void = () => {};
+  /** P 키: 포즈 메뉴 열고 닫기 (UI가 정한다) */
+  onPoseKey: () => void = () => {};
 
   private readonly stage: Stage;
   private readonly map: Neighborhood;
@@ -55,6 +58,8 @@ export class Game {
   private readonly ctrl: CatController;
   private readonly animator = new CatAnimator();
   private readonly brain: BehaviorBrain;
+  /** 포즈 메뉴로 고른 자세: 움직일 때까지 유지한다 */
+  private readonly poseHold = new PoseHold();
   private readonly cam: CameraRig;
   readonly audio = new AudioManager();
   private readonly input = new Input(window);
@@ -235,6 +240,33 @@ export class Game {
     this.emitHud();
   }
 
+  /**
+   * 포즈 메뉴: 고른 자세를 취하고 움직일 때까지 유지한다 (직접 조작으로 바뀜, 사용자 결정 2026-11-09).
+   * 먹는 중·떠 있을 때·점프 중에는 하지 않는다
+   */
+  doPose(id: BehaviorId): void {
+    if (this.phase !== 'play' || this.eating?.seq.locksMovement || this.balloon.amount > 0.05 || this.ctrl.jumping) return;
+    if (this.eating) this.cancelEating();
+    this.petUntil = 0;
+    if (this.mode === 'auto') {
+      this.mode = 'manual';
+      this.manualLocked = false;
+      this.clearTargets();
+    }
+    const c = this.poseHold.start(id);
+    this.brain.interrupt(c.id, c.duration, this.time);
+    this.lastInputAt = this.time;
+    this.emitHud();
+  }
+
+  /** 고양이 몸 가운데의 화면 위치 (CSS 픽셀). 카메라 뒤에 있으면 null */
+  catScreenPos(): { x: number; y: number } | null {
+    const v = new THREE.Vector3(this.ctrl.x, this.ctrl.y + this.floatHeight + 0.14 * this.ctrl.scale, this.ctrl.z).project(this.cam.active);
+    if (v.z > 1) return null;
+    const el = this.stage.renderer.domElement;
+    return { x: ((v.x + 1) / 2) * el.clientWidth, y: ((1 - v.y) / 2) * el.clientHeight };
+  }
+
   /** 먹이 주기: 고양이 앞에 그릇을 놓는다 (기획서 8.2) */
   giveFood(): void {
     if (this.phase !== 'play') return;
@@ -291,7 +323,12 @@ export class Game {
     const b = this.brain.current;
     let animBehavior: AnimBehavior = b.id;
     if (this.eating) animBehavior = this.eating.seq.animBehavior;
-    else if (this.mode === 'manual' && this.phase === 'play') animBehavior = 'idle';
+    else if (this.mode === 'manual' && this.phase === 'play') {
+      // 포즈 메뉴로 고른 자세는 그 행동으로, 아니면 가만히 서 있기. 한 번 하는 동작이 끝나면 앉기로
+      const after = this.poseHold.next(this.brain.progress(now));
+      if (after) this.brain.interrupt(after.id, after.duration, now);
+      animBehavior = this.poseHold.id ? this.brain.current.id : 'idle';
+    }
     else if (b.id === 'eat') animBehavior = 'idle';
     const view = { x: this.ctrl.x, z: this.ctrl.z, heading: this.ctrl.heading, eyeY: this.ctrl.y + this.floatHeight + 0.25 * this.ctrl.scale };
     const lookAt = this.gazePicker.update(now, view, this.gazePoints);
@@ -331,6 +368,7 @@ export class Game {
       if (k === 'KeyC') this.toggleCamera();
       if (k === 'KeyF') this.giveFood();
       if (k === 'Space') this.tryJump();
+      if (k === 'KeyP') this.onPoseKey();
     }
   }
 
@@ -342,6 +380,7 @@ export class Game {
     if (this.eating?.seq.locksMovement || this.balloon.amount > 0.05 || this.ctrl.jumping) return;
     if (this.eating) this.cancelEating();
     this.petUntil = 0;
+    this.poseHold.stop();
     this.lastInputAt = this.time;
     if (this.mode === 'auto') {
       this.mode = 'manual';
@@ -386,6 +425,7 @@ export class Game {
     } else if (hasInput) {
       if (this.eating) this.cancelEating(); // 그릇으로 가던 중이면 사용자의 조작이 우선
       this.petUntil = 0;
+      this.poseHold.stop(); // 움직이면 고른 자세는 끝 (앉거나 누워 있으면 먼저 일어선다)
       if (this.mode === 'auto') {
         this.mode = 'manual';
         this.manualLocked = false;
@@ -398,7 +438,7 @@ export class Game {
     if (this.eating) {
       this.updateEating(dt, now);
     } else if (this.mode === 'manual') {
-      this.startEatingIfAtBowl();
+      if (!this.poseHold.id) this.startEatingIfAtBowl(); // 자세를 취하는 동안에는 그릇 앞이어도 먹지 않는다
       this.ctrl.running = this.input.running() && this.balloon.amount < 0.05;
       if (hasInput && !this.readyToMove(dt)) {
         // 앉아 있거나 엎드려 있으면 일어선 뒤에 걷는다
@@ -412,7 +452,7 @@ export class Game {
         const rz = Math.sin(this.cam.yaw);
         this.ctrl.moveDirect(fx * mv.z + rx * mv.x, fz * mv.z + rz * mv.x, dt);
       }
-      if (!this.manualLocked && now - this.lastInputAt > MANUAL_RETURN) this.returnToAuto();
+      if (!this.manualLocked && !this.poseHold.id && now - this.lastInputAt > MANUAL_RETURN) this.returnToAuto();
     } else {
       this.updateAuto(dt, now);
     }
@@ -581,6 +621,7 @@ export class Game {
   }
 
   private returnToAuto(): void {
+    this.poseHold.stop();
     this.mode = 'auto';
     this.manualLocked = false;
     this.clearTargets();
