@@ -152,7 +152,7 @@ export class CatAnimator {
         t.headPitch = 0.35;
         t.headYaw = 0.45;
         t.headTilt = 0.2;
-        t.eyesClosed = smooth(0.05, 0.2, input.progress) * (1 - smooth(0.92, 1, input.progress));
+        t.eyesClosed = sleepyEyes(e, input.progress, 0.92);
         break;
       case 'eat':
         t.headPitch = 0.95;
@@ -178,7 +178,7 @@ export class CatAnimator {
         t.tailUp = 0;
         t.tailWag = 0.05;
         t.headPitch = 0.1;
-        t.eyesClosed = smooth(0.1, 0.3, input.progress) * 0.9 * (1 - smooth(0.9, 1, input.progress));
+        t.eyesClosed = sleepyEyes(e, input.progress, 0.9) * 0.9;
         break;
       case 'bellyUp':
         // 배를 보이고 뒤집어 누움: 편안할 때만 보이는 자세. 고개를 옆으로 꺾고 꼬리를 살랑인다
@@ -211,7 +211,7 @@ export class CatAnimator {
         t.tailWag = 0.03;
         t.headPitch = 0.3;
         t.headYaw = 0.2;
-        t.eyesClosed = smooth(0.1, 0.3, input.progress) * (1 - smooth(0.92, 1, input.progress));
+        t.eyesClosed = sleepyEyes(e, input.progress, 0.92);
         break;
       case 'manSit':
         // 아저씨 앉기 (스코티시폴드): 엉덩이를 대고 상체를 세워 사람처럼 앉는다
@@ -329,6 +329,14 @@ export class CatAnimator {
     t.headYaw = -0.15 * lift;
     t.eyesClosed = 0.75 * lift;
   }
+}
+
+/**
+ * 누워 자는 자세의 눈: 누운 뒤 0.5~2초에 걸쳐 감고, 행동이 끝나갈 때(진행 wakeAt 이후) 뜬다.
+ * 감는 때를 진행 비율이 아닌 경과 시간으로 정한다: 포즈 메뉴로 고른 자세는 끝이 없어 진행이 늘 0이다 (2026-11-09)
+ */
+function sleepyEyes(elapsed: number, progress: number, wakeAt: number): number {
+  return smooth(0.5, 2, elapsed) * (1 - smooth(wakeAt, 1, progress));
 }
 
 function lerp(a: number, b: number, t: number): number {

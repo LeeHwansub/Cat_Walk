@@ -73,3 +73,26 @@ describe('누운 자세 (Blender로 만든 cat-poses.glb)', () => {
     expect(LIE_POSE_BONES.some((b) => /tail|ear|eye|mouth/.test(b))).toBe(false);
   });
 });
+
+describe('누워 자는 자세의 눈: 시작 후 시간으로 감는다 (포즈 메뉴는 끝이 없어 진행이 늘 0, 사용자 결정 2026-11-09)', () => {
+  /** 행동 진행은 0에 머물고(포즈 메뉴 유지) 경과 시간만 늘어나게 돌린다 */
+  function hold(behavior: AnimInput['behavior'], seconds: number) {
+    const a = new CatAnimator();
+    const dt = 1 / 60;
+    for (let t = 0; t < seconds; t += dt) a.update(input({ behavior, progress: 0, elapsed: t }), dt);
+    return a.pose;
+  }
+
+  it('낮잠·꼬리 감기·옆으로 눕기는 진행이 0이어도 몇 초 지나면 눈을 감는다', () => {
+    for (const b of ['nap', 'tailWrap', 'sideLie'] as const) expect(hold(b, 6).eyesClosed, b).toBeGreaterThan(0.8);
+  });
+
+  it('막 누웠을 때는 아직 눈을 뜨고 있다', () => {
+    for (const b of ['nap', 'tailWrap', 'sideLie'] as const) expect(hold(b, 0.4).eyesClosed, b).toBeLessThan(0.1);
+  });
+
+  it('행동이 끝나갈 때(진행 0.95 이후)는 다시 눈을 뜬다', () => {
+    const p = run(new CatAnimator(), { behavior: 'nap', progress: 0.99, elapsed: 30 }, 4);
+    expect(p.eyesClosed).toBeLessThan(0.2);
+  });
+});
