@@ -263,7 +263,7 @@ export class Game {
 
   /** 고양이 몸 가운데의 화면 위치 (CSS 픽셀). 카메라 뒤에 있으면 null */
   catScreenPos(): { x: number; y: number } | null {
-    const v = new THREE.Vector3(this.ctrl.x, this.ctrl.y + this.floatHeight + 0.14 * this.ctrl.scale, this.ctrl.z).project(this.cam.active);
+    const v = new THREE.Vector3(this.ctrl.x, this.ctrl.bodyY + this.floatHeight + 0.14 * this.ctrl.scale, this.ctrl.z).project(this.cam.active);
     if (v.z > 1) return null;
     const el = this.stage.renderer.domElement;
     return { x: ((v.x + 1) / 2) * el.clientWidth, y: ((1 - v.y) / 2) * el.clientHeight };
@@ -352,13 +352,14 @@ export class Game {
     );
     if (this.rig.cycleLengthAt) this.ctrl.cycleLength = this.rig.cycleLengthAt(pose.run);
     // 높이 = 땅·계단·담 위 높이(J-1) + 풍선으로 뜬 높이
-    this.rig.root.position.set(this.ctrl.x, this.ctrl.y + this.floatHeight, this.ctrl.z);
-    this.rig.root.rotation.y = this.ctrl.heading;
+    // 보이는 몸은 bodyY·bodyPitch: 계단에서 경사로처럼 부드럽게 오르고 머리를 든다 (판정 높이 ctrl.y는 한 칸씩, 2026-11-10)
+    this.rig.root.position.set(this.ctrl.x, this.ctrl.bodyY + this.floatHeight, this.ctrl.z);
+    this.rig.root.rotation.set(-this.ctrl.bodyPitch, this.ctrl.heading, 0, 'YXZ');
     this.rig.setFirstPerson?.(this.cam.mode === 'cat');
     this.rig.setBodyFade?.(this.cam.bodyFade);
     this.rig.apply(pose, now);
 
-    this.cam.update(dt, now, { x: this.ctrl.x, y: this.ctrl.y + this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
+    this.cam.update(dt, now, { x: this.ctrl.x, y: this.ctrl.bodyY + this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
     this.stage.followSun(this.ctrl.x, this.ctrl.z);
     this.audio.update(dt);
     this.stage.renderer.render(this.stage.scene, this.cam.active);

@@ -1,4 +1,5 @@
 import { groundAt, resolveCircle, STEP_UP, type CollisionWorld } from '../world/collision';
+import { bodyOnGround } from './slope';
 import { airTime, findLanding, JUMP, jumpPoint, jumpWeights, type JumpPhase, type JumpWeights, type Landing } from './jump';
 
 // 걷기 속도 (m/s, 성체 기준). glb 모델의 걷기 클립 보폭에 맞춰 다리가 너무 빨리 움직이지 않게 낮춤 (2026-11-07 사용자 요청)
@@ -23,6 +24,8 @@ const TURN_RATE = 3.2;
 const RADIUS = 0.16;
 /** 턱(STEP_UP 이하)을 오르내릴 때 높이를 따라가는 빠르기 (m/s). 계단 한 칸이 약 0.1초 */
 const STEP_RATE = 1.5;
+/** 보이는 몸이 바닥 높이·기울기를 따라가는 빠르기 (1/s). 계단 디딤판 경계를 지날 때의 작은 단차를 부드럽게 */
+const BODY_FOLLOW = 15;
 /** 중력 가속도 (m/s²) */
 export const GRAVITY = 9.8;
 /** 가장자리를 이만큼(초) 계속 밀면 그쪽으로 뛰어내린다 (J-3) */
@@ -113,6 +116,7 @@ export class CatController {
 
   /** 점프 한 프레임: 웅크리기(제자리) → 공중(포물선) → 착지(제자리) */
   private stepJump(dt: number): void {
+    this.updateBody(dt);
     const j = this.jumpState!;
     j.t += dt;
     if (j.phase === 'crouch') {
@@ -289,7 +293,32 @@ export class CatController {
     return groundAt(this.world, x, z, this.y) < this.y - STEP_UP - 1e-6;
   }
 
+  /**
+   * 보이는 몸 높이·기울기 (판정 높이 y와 따로): 계단에서 한 칸씩 툭툭 오르지 않고 경사로처럼 (2026-11-10).
+   * 점프 중에는 y 그대로, 순간 이동(0.5m 넘게 차이)이면 바로 맞춘다
+   */
+  bodyY = 0;
+  bodyPitch = 0;
+
+  private updateBody(dt: number): void {
+    const k = 1 - Math.exp(-BODY_FOLLOW * dt);
+    if (this.jumpState || this.vy !== 0) {
+      this.bodyY = this.y;
+      this.bodyPitch += (0 - this.bodyPitch) * k;
+      return;
+    }
+    const b = bodyOnGround(this.world, this.x, this.z, this.y, this.heading, this.scale);
+    if (Math.abs(b.y - this.bodyY) > 0.5) this.bodyY = b.y;
+    this.bodyY += (b.y - this.bodyY) * k;
+    this.bodyPitch += (b.pitch - this.bodyPitch) * k;
+  }
+
   private advance(dt: number): void {
+    this.move(dt);
+    this.updateBody(dt);
+  }
+
+  private move(dt: number): void {
     this.updateVertical(dt);
     if (this.speed < 1e-4) {
       this.speed = 0;
