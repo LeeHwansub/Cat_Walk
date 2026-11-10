@@ -1,0 +1,122 @@
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+/**
+ * 맵 소품 모델 (Polyfork 무료 모델, CC BY 4.0, 2026-11-09 시범: 골목 한 구역).
+ * 모델은 미터 단위·바닥 0·가운데 정렬이고, 정점 색(COLOR_0)으로 칠해져 있다.
+ * 불러온 뒤 메시 하나로 구워(bakeModel) 놓을 때마다 도형·재질을 함께 쓴다 (그리기 호출 1회).
+ * 배치·충돌은 모델이 없어도 같다 (MapKit.prop이 같은 크기의 상자로 대신한다).
+ */
+export const PROP_SPECS = {
+  hatchback: { file: 'compact-hatchback.glb', scale: 1.05 }, // 4.0m → 4.2m (예전 상자 차와 같은 길이)
+  keiVan: { file: 'kei-van.glb', scale: 1.05 },
+  acUnit: { file: 'air-con-unit.glb', scale: 0.9 },
+  shrub: { file: 'potted-shrub.glb', scale: 0.55 }, // 1.38m → 0.76m (골목 화분 크기)
+  lamp: { file: 'street-lamp.glb', scale: 0.9 },
+  meterBox: { file: 'meter-box.glb', scale: 0.85 },
+  moped: { file: 'delivery-moped.glb', scale: 1 },
+  bicycle: { file: 'city-bicycle.glb', scale: 1 },
+  vending: { file: 'vending-machine.glb', scale: 0.95 },
+  bin: { file: 'street-bin.glb', scale: 0.9 },
+  crate: { file: 'beverage-crate.glb', scale: 1 },
+  cone: { file: 'traffic-cone.glb', scale: 0.75 },
+} as const;
+
+export type PropId = keyof typeof PROP_SPECS;
+/** 구운 소품 모델 (없는 것은 상자로 대신한다) */
+export type PropModels = Partial<Record<PropId, THREE.Object3D>>;
+
+export const PROP_DIR = 'assets/models/props/';
+
+/**
+ * 모델의 메시를 정점 색을 유지한 채 하나로 굽는다. 바닥(최저점)을 0에, 바닥에 닿는 부분의 가운데를 원점에 맞추고 scale배 한다.
+ * 구역 합치기(mergeStatic)는 색 속성을 지우므로, 구운 모델은 합치기에서 뺀다 (MapKit.unmerged).
+ */
+export function bakeModel(src: THREE.Object3D, scale: number): THREE.Mesh {
+  src.updateMatrixWorld(true);
+  const geos: THREE.BufferGeometry[] = [];
+  let material: THREE.Material | null = null;
+  src.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const g = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()).applyMatrix4(m.matrixWorld);
+    for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'color') g.deleteAttribute(name);
+    // 색이 없는 메시가 섞이면 합칠 수 없어 흰색을 채운다
+    if (!g.getAttribute('color')) g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(g.attributes.position.count * 3).fill(1), 3));
+    geos.push(g);
+    material ??= Array.isArray(m.material) ? m.material[0] : m.material;
+  });
+  const geo = mergeGeometries(geos, false);
+  for (const g of geos) g.dispose();
+  geo.computeBoundingBox();
+  const b = geo.boundingBox!;
+  // 가로·세로 원점은 바닥에 닿는 부분(아래 5%)의 가운데: 팔이 한쪽으로 뻗은 가로등도 기둥이 놓는 자리에 온다
+  const pos = geo.getAttribute('position');
+  const low = b.min.y + 0.05 * (b.max.y - b.min.y);
+  const base = new THREE.Box3();
+  for (let i = 0; i < pos.count; i++) if (pos.getY(i) <= low) base.expandByPoint(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)));
+  geo.translate(-(base.min.x + base.max.x) / 2, -b.min.y, -(base.min.z + base.max.z) / 2);
+  geo.scale(scale, scale, scale);
+  geo.computeBoundingBox();
+  geo.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geo, material ?? new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+/**
+ * 가장 넓은 면적을 칠한 정점 색(차체)만 color로 바꾼 복제를 돌려준다. 유리·바퀴·등 같은 나머지 색은 그대로, 원본은 건드리지 않는다.
+ * Polyfork 모델은 정점 색으로 칠해져 재질 색으로는 차체만 바꿀 수 없다 (사용자 요청 2026-11-10: 차가 모두 같은 노란색)
+ */
+export function recolorBody(model: THREE.Mesh, color: string): THREE.Mesh {
+  const geo = model.geometry.clone();
+  const col = geo.getAttribute('color') as THREE.BufferAttribute;
+  const key = (i: number) => `${Math.round(col.getX(i) * 64)},${Math.round(col.getY(i) * 64)},${Math.round(col.getZ(i) * 64)}`;
+  // 면적으로 센다: 정점 개수로 세면 잘게 쪼개진 바퀴가 차체보다 많다 (해치백: 바퀴 726면, 차체 510면이지만 넓이는 차체 17.1 > 바퀴 5.2)
+  const pos = geo.getAttribute('position');
+  const area = new Map<string, number>();
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), d = new THREE.Vector3();
+  for (let i = 0; i + 2 < col.count; i += 3) {
+    a.fromBufferAttribute(pos, i);
+    b.fromBufferAttribute(pos, i + 1).sub(a);
+    d.fromBufferAttribute(pos, i + 2).sub(a);
+    area.set(key(i), (area.get(key(i)) ?? 0) + b.cross(d).length() / 2);
+  }
+  let body = '';
+  let most = 0;
+  for (const [k, n] of area) if (n > most) (most = n), (body = k);
+  const c = new THREE.Color(color); // 정점 색과 같은 선형 색 공간
+  for (let i = 0; i < col.count; i++) if (key(i) === body) col.setXYZ(i, c.r, c.g, c.b);
+  col.needsUpdate = true;
+  const m = new THREE.Mesh(geo, model.material);
+  m.castShadow = model.castShadow;
+  m.receiveShadow = model.receiveShadow;
+  return m;
+}
+
+const ray = new THREE.Raycaster();
+/** 구운 모델의 (x, z) 지점 윗면 높이. 없으면 0 (차 보닛·트렁크에 올라설 수 있는지 잴 때) */
+export function topAt(model: THREE.Object3D, x: number, z: number): number {
+  model.updateMatrixWorld(true);
+  ray.set(new THREE.Vector3(x, 100, z), new THREE.Vector3(0, -1, 0));
+  const hit = ray.intersectObject(model, true)[0];
+  return hit ? 100 - hit.distance : 0;
+}
+
+/** 소품 모델을 모두 불러와 굽는다. 하나가 실패해도 나머지는 쓴다 (실패한 것은 상자로) */
+export async function loadPropModels(loader: GLTFLoader, base: string): Promise<PropModels> {
+  const out: PropModels = {};
+  await Promise.all(
+    (Object.keys(PROP_SPECS) as PropId[]).map(async (id) => {
+      try {
+        const gltf = await loader.loadAsync(`${base}${PROP_DIR}${PROP_SPECS[id].file}`);
+        out[id] = bakeModel(gltf.scene, PROP_SPECS[id].scale);
+      } catch (err) {
+        console.warn(`소품 모델을 불러오지 못해 상자로 대신합니다: ${id}`, err);
+      }
+    }),
+  );
+  return out;
+}

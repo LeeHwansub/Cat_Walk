@@ -1,11 +1,20 @@
 import * as THREE from 'three';
 import { range } from '../../core/rng';
 import type { MapKit } from './kit';
+import { topAt } from '../propModels';
 
 /** 소품 부품: 차, 전봇대, 화분, 잡초, 나무, 벤치, 화단, 먹이 쉼터 */
 
-/** 승용차. 차 밑과 바퀴 주변은 고양이가 좋아하는 냄새 맡기 장소 */
-export function car(k: MapKit, x: number, z: number, color: string, rotY: number): void {
+/** 차 모델의 보닛·트렁크 높이가 이보다 높으면 올라설 수 없다 (경차 밴처럼 앞이 높은 차) */
+const CAR_TOP_MAX = 1.2;
+
+/**
+ * 승용차. 차 밑과 바퀴 주변은 고양이가 좋아하는 냄새 맡기 장소.
+ * model: 소품 모델(해치백·경차 밴)이 불러와져 있으면 그 모델로, 충돌 윗면은 모델에서 잰 높이로 (2026-11-09 시범)
+ */
+export function car(k: MapKit, x: number, z: number, color: string, rotY: number, model?: 'hatchback' | 'keiVan'): void {
+  const tpl = model ? k.models[model] : undefined;
+  if (model && tpl) return modelCar(k, x, z, rotY, model, tpl, color);
   const g = new THREE.Group();
   const body = k.mat(color, 0.35);
   const glass = k.mat('#2a3440', 0.15);
@@ -41,6 +50,32 @@ export function car(k: MapKit, x: number, z: number, color: string, rotY: number
   k.interests.push({ kind: 'car', x: x + (along ? 1.2 : 0), z: z + (along ? 0 : z > 0 ? -1.2 : 1.2), r: 0.6 });
 }
 
+/** 모델 차: 길이 방향을 트렁크·실내·보닛 세 칸으로 나누고, 앞뒤 칸 윗면은 모델에서 잰 높이 (지붕은 올라설 수 없음) */
+function modelCar(k: MapKit, x: number, z: number, rotY: number, id: 'hatchback' | 'keiVan', tpl: THREE.Object3D, color: string): void {
+  // 모델은 길이가 z축이고, 맵의 차는 rotY = 0일 때 길이가 x축이다
+  // 차체 색은 차마다 (모델의 차체 색만 바꾼다)
+  const o = k.prop(id, x, z, rotY + Math.PI / 2, { w: 1.8, h: 1.5, d: 4.2, color: '#cccccc' }, color);
+  k.occluders.push(o);
+  const box = new THREE.Box3().setFromObject(tpl);
+  const len = box.max.z - box.min.z;
+  const half = (box.max.x - box.min.x) / 2;
+  const end = 0.2 * len;
+  const top = (lz: number) => {
+    const h = topAt(tpl, 0, lz);
+    return h > 0 && h <= CAR_TOP_MAX ? h : undefined;
+  };
+  const along = Math.abs(Math.sin(rotY)) > 0.5;
+  const s = along ? -Math.sin(rotY) : Math.cos(rotY);
+  const l = len / 2;
+  for (const [l0, l1, t] of [[-l, -l + end, top(-l + end / 2)], [-l + end, l - end, undefined], [l - end, l, top(l - end / 2)]] as const) {
+    const a = Math.min(l0 * s, l1 * s);
+    const b = Math.max(l0 * s, l1 * s);
+    if (along) k.solidRect(x - half, x + half, z + a, z + b, t);
+    else k.solidRect(x + a, x + b, z - half, z + half, t);
+  }
+  k.interests.push({ kind: 'car', x: x + (along ? 1.2 : 0), z: z + (along ? 0 : z > 0 ? -1.2 : 1.2), r: 0.6 });
+}
+
 export function pole(k: MapKit, x: number, z: number): void {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 8, 10), k.mat('#a7a39a'));
   m.position.set(x, 4, z);
@@ -51,7 +86,17 @@ export function pole(k: MapKit, x: number, z: number): void {
 }
 
 export function pot(k: MapKit, x: number, z: number): void {
-  const terracotta = k.mat(k.rng() < 0.5 ? '#b9653f' : '#5d7d8c', 0.8);
+  const potColor = k.rng() < 0.5 ? '#b9653f' : '#5d7d8c';
+  if (k.models.shrub) {
+    // 소품 모델(화분 나무)로. 무작위 순서를 그대로 두려고 꽃 색·위치 값도 똑같이 뽑는다
+    k.rng();
+    for (let i = 0; i < 5; i++) k.rng(), k.rng();
+    k.prop('shrub', x, z, 0, { w: 0.4, h: 0.6, d: 0.4, color: potColor });
+    k.circles.push({ x, z, r: 0.24 });
+    k.interests.push({ kind: 'flower', x, z, r: 0.6 }, { kind: 'pot', x, z, r: 0.6 });
+    return;
+  }
+  const terracotta = k.mat(potColor, 0.8);
   const p = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.32, 12), terracotta);
   p.position.set(x, 0.16, z);
   p.castShadow = p.receiveShadow = true;

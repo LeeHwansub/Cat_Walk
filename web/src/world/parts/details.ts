@@ -133,6 +133,14 @@ export function acUnit(k: MapKit, x: number, y: number, faceZ: number, out: 1 | 
 
 /** 바닥형 실외기 (주차장·빈터): 충돌 있음 */
 export function groundAcUnit(k: MapKit, x: number, z: number, out: 1 | -1, alongX = true): void {
+  if (k.models.acUnit) {
+    // 소품 모델(실외기)로: 팬이 모델의 앞(+z)에 있어 길 쪽(out)을 보게 돌린다. 충돌은 같은 크기
+    const w = 0.82;
+    const d = 0.34;
+    k.prop('acUnit', x, z, alongX ? (out === 1 ? 0 : Math.PI) : (out === 1 ? Math.PI / 2 : -Math.PI / 2), { w, h: 0.62, d, color: '#e6e2d8' });
+    k.solidRect(x - (alongX ? w : d) / 2, x + (alongX ? w : d) / 2, z - (alongX ? d : w) / 2, z + (alongX ? d : w) / 2, 0.55);
+    return;
+  }
   const body = light(k);
   const grille = dark(k);
   const w = 0.82;

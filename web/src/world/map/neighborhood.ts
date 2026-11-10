@@ -4,6 +4,7 @@ import type { CollisionWorld, Rect } from '../collision';
 import { mergeStatic } from '../merge';
 import { backdropApartments } from '../parts/buildings';
 import { MapKit, type Interest, type Zone } from '../parts/kit';
+import type { PropModels } from '../propModels';
 import { buildAlley, buildFeedingCorner, ROAD_HALF } from '../zones/alley';
 import { buildPark } from '../zones/park';
 
@@ -31,8 +32,10 @@ export interface Neighborhood {
  */
 export const BOUNDS: Rect = { minX: -26, maxX: 24, minZ: -14, maxZ: 14 };
 
-export function buildNeighborhood(): Neighborhood {
+/** models: 불러온 소품 모델 (없으면 같은 크기의 상자로 대신한다) */
+export function buildNeighborhood(models: PropModels = {}): Neighborhood {
   const k = new MapKit(createRng(2026));
+  k.models = models;
   groundOuter(k);
 
   const { foodStation } = buildAlley(k, BOUNDS);
@@ -44,7 +47,7 @@ export function buildNeighborhood(): Neighborhood {
   backdropApartments(k);
 
   // 구역마다 움직이지 않는 작은 물체를 재질별로 합친다 (카메라 가림 물체는 제외)
-  const keep = new Set(k.occluders);
+  const keep = new Set([...k.occluders, ...k.unmerged]);
   let mergedAway = 0;
   for (const z of k.zones) mergedAway += mergeStatic(z.group, keep);
 

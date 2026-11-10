@@ -42,7 +42,8 @@ export function buildAlley(k: MapKit, bounds: Rect): AlleyResult {
   emptyLot(k, 1, 4.6);
 
   // ---- 골목 소품
-  for (const [x, z, color] of [[-21, 1.75, '#f2f2f2'], [-9.5, -1.75, '#39465c'], [-3, 1.75, '#b8bcc2']] as const) car(k, x, z, color, 0);
+  // 차: 소품 모델이 있으면 경차 밴·해치백 (2026-11-09 시범)
+  for (const [x, z, color, model] of [[-21, 1.75, '#f2f2f2', 'keiVan'], [-9.5, -1.75, '#39465c', 'hatchback'], [-3, 1.75, '#b8bcc2', 'hatchback']] as const) car(k, x, z, color, 0, model);
   for (const x of [-22, -12.5, -2.5]) pole(k, x, 2.75);
   for (const x of [-16.5, -7]) pole(k, x, -2.75);
   for (const [x, z] of [[-24, 2.95], [-20.4, 2.95], [-13, 2.95], [-11.9, 2.95], [-6, 2.95], [-17.5, -2.95], [-14, -2.95], [-3, -2.95], [-0.5, -2.95]] as const) pot(k, x, z);
@@ -50,7 +51,40 @@ export function buildAlley(k: MapKit, bounds: Rect): AlleyResult {
   utilityLines(k);
   styroGarden(k, -7.6, 2.95);
   styroGarden(k, -15.5, -2.95);
+  streetProps(k);
   return { foodStation: { x: 3.0, z: 2.75 } };
+}
+
+/**
+ * 골목 생활 소품 (Polyfork 모델 시범, 2026-11-09): 자판기·음료 상자(가게 앞), 계량기 함, 자전거, 쓰레기통,
+ * 주차장 입구 고깔, 가로등. 모델이 없으면 같은 크기의 상자. 충돌은 모델과 같은 크기로
+ */
+function streetProps(k: MapKit): void {
+  // 가게 앞 자판기 (앞이 큰길 쪽) + 음료 상자 (올라설 수 있음)
+  k.occluders.push(k.prop('vending', -0.3, 2.86, Math.PI, { w: 1.05, h: 1.8, d: 0.76, color: '#c4402f' })); // 키가 커서 카메라도 막는다
+  k.solidRect(-0.83, 0.23, 2.48, 3.24);
+  k.prop('crate', 0.7, 3.0, 0.2, { w: 0.44, h: 0.36, d: 0.41, color: '#3f5a8a' });
+  k.solidRect(0.48, 0.92, 2.79, 3.21, 0.36);
+  // 빌라 벽 앞 계량기 함
+  k.prop('meterBox', -14.6, 3.1, Math.PI, { w: 0.46, h: 0.6, d: 0.29, color: '#d9d4c7' });
+  k.solidRect(-14.83, -14.37, 2.95, 3.25, 0.6);
+  // 남쪽 주택 담 앞 자전거 (길이 방향이 큰길과 나란히)
+  k.prop('bicycle', -21.5, -2.92, Math.PI / 2, { w: 0.64, h: 1.0, d: 1.69, color: '#5a6b85' });
+  k.solidRect(-22.35, -20.65, -3.24, -2.6);
+  // 쓰레기통 (냄새 맡는 곳)
+  k.prop('bin', -9.0, -2.95, 0, { w: 0.53, h: 0.8, d: 0.52, color: '#d8d6d0' });
+  k.circles.push({ x: -9.0, z: -2.95, r: 0.27 });
+  k.interests.push({ kind: 'pot', x: -9.0, z: -2.6, r: 0.6 });
+  // 주차장 입구 고깔
+  for (const x of [-11.6, -6.4]) {
+    k.prop('cone', x, -3.0, 0, { w: 0.33, h: 0.52, d: 0.33, color: '#e8742c' });
+    k.circles.push({ x, z: -3.0, r: 0.16 });
+  }
+  // 가로등 (팔이 큰길 쪽으로)
+  for (const [x, z, rotY] of [[-15.0, 2.95, Math.PI], [-19.5, -2.95, 0]] as const) {
+    k.prop('lamp', x, z, rotY, { w: 0.2, h: 4.5, d: 0.2, color: '#8a8f94' });
+    k.circles.push({ x, z, r: 0.15 });
+  }
 }
 
 /** 전선: 같은 쪽 전봇대끼리, 길 건너 지그재그, 건물로 들어가는 인입선. 변압기 하나 (3-1) */
@@ -123,8 +157,11 @@ function sideAlley(k: MapKit, minX: number, maxX: number, b: Rect): void {
 function parkingLot(k: MapKit, minX: number, maxX: number, b: Rect): void {
   const white = k.mat('#e9e6dc', 0.7);
   for (let x = minX + 0.2; x <= maxX; x += 2.6) k.flat(0.1, 5, white, x, -8.5);
-  car(k, minX + 1.5, -8.5, '#c9c9c9', Math.PI / 2);
-  car(k, minX + 4.1, -8.6, '#7a2d2d', Math.PI / 2);
+  car(k, minX + 1.5, -8.5, '#c9c9c9', Math.PI / 2, 'keiVan');
+  car(k, minX + 4.1, -8.6, '#7a2d2d', Math.PI / 2, 'hatchback');
+  // 배달 오토바이: 주차 칸 옆, 담 앞 (시범)
+  k.occluders.push(k.prop('moped', maxX - 0.6, -9.8, 0, { w: 0.66, h: 1.3, d: 1.8, color: '#3d7a4a' }));
+  k.solidRect(maxX - 0.95, maxX - 0.25, -10.7, -8.9);
   groundAcUnit(k, maxX - 0.6, -4.6, 1);
   k.box(maxX - minX, 1.5, 0.2, k.mat('#b9b2a6'), (minX + maxX) / 2, 0.75, b.minZ + 0.1);
   k.interests.push({ kind: 'sunspot', x: maxX - 1, z: -5, r: 0.8 });

@@ -25,6 +25,7 @@ import { findLanding } from './cat/jump';
 import { PoseHold } from './behavior/poseHold';
 import { isFree, pathClear, STEP_UP } from './world/collision';
 import { buildNeighborhood, type Interest, type Neighborhood } from './world/map/neighborhood';
+import type { PropModels } from './world/propModels';
 import { Stage } from './world/scene';
 
 export type Phase = 'menu' | 'create' | 'play';
@@ -102,10 +103,11 @@ export class Game {
     private readonly container: HTMLElement,
     catModel: THREE.Object3D | null = null,
     motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null; poses?: THREE.Object3D | null } = {},
+    propModels: PropModels = {},
   ) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
-    this.map = buildNeighborhood();
+    this.map = buildNeighborhood(propModels);
     this.stage.scene.add(this.map.group);
 
     this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel, motions) : new ProceduralCatRig(this.save.cat);

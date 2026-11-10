@@ -116,6 +116,25 @@ export const CREDITS: Credit[] = [
     changes: ['파일은 수정하지 않고 이름만 바꿈', '재생할 때 음량(LUFS 기준)과 앞부분 무음을 조정함'],
     commercial: 'unconfirmed',
   },
+  {
+    id: 'polyfork-props',
+    role: '골목 소품 모델 12종 (차·실외기·화분·가로등·자판기·자전거 등, 2026-11-09 시범)',
+    name: 'Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City 키트)',
+    author: { name: 'Polyfork (Lucas Martinic)', url: 'https://polyfork.dev' },
+    sourceUrl: 'https://polyfork.dev/kit/japanese-suburban-city-street-baa482',
+    downloadUrl: 'https://github.com/lucas-martinic/polyfork-catalog',
+    license: {
+      name: 'CC BY 4.0 (Creative Commons Attribution)',
+      url: 'https://creativecommons.org/licenses/by/4.0/deed.ko',
+      note: 'polyfork.dev/licensing 기준 (2026-11-09 확인): 무료 모델의 메시 파일은 CC BY 4.0. 모델별 페이지는 CREDITS.md 6장',
+    },
+    files: ['web/public/assets/models/props/*.glb'],
+    changes: [
+      '파일 자체는 수정하지 않고 이름만 바꿈 (예: kei-van-211ed5.glb → kei-van.glb)',
+      '게임에서 불러올 때 메시를 하나로 합치고, 바닥 기준점·축척을 맞춤 (화분 0.55배, 가로등 0.9배 등)',
+    ],
+    commercial: 'unconfirmed',
+  },
 ];
 
 /** 외부 출처가 아닌 것 (출처 화면에 함께 안내) */

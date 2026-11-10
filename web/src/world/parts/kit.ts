@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { InterestKind } from '../../behavior/types';
 import type { Rng } from '../../core/rng';
 import type { Circle, Rect } from '../collision';
+import { recolorBody, type PropId, type PropModels } from '../propModels';
 
 export interface Interest {
   kind: InterestKind;
@@ -32,7 +33,12 @@ export class MapKit {
   readonly interests: Interest[] = [];
   /** 카메라가 뚫고 들어가지 않게 레이캐스트할 큰 물체 */
   readonly occluders: THREE.Object3D[] = [];
+  /** 구역 합치기에서 뺄 물체 (정점 색 모델: 합치기가 색 속성을 지운다) */
+  readonly unmerged: THREE.Object3D[] = [];
+  /** 불러온 소품 모델 (없는 것은 prop()이 상자로 대신한다) */
+  models: PropModels = {};
   private readonly mats = new Map<string, THREE.MeshStandardMaterial>();
+  private readonly tints = new Map<string, THREE.Mesh>();
 
   constructor(readonly rng: Rng) {
     this.group = this.beginZone('shared');
@@ -75,6 +81,39 @@ export class MapKit {
     m.position.set(x, 0.004, z);
     m.receiveShadow = true;
     this.group.add(m);
+  }
+
+  /**
+   * 소품 하나를 놓는다: 모델이 있으면 복제(도형·재질 공유), 없으면 같은 크기의 상자 (fallback: 폭·높이·깊이·색).
+   * 충돌·관심 지점은 부르는 쪽이 정한다 (모델이 있든 없든 같게). rotY: 모델의 앞(+z)이 향할 방향
+   */
+  prop(id: PropId, x: number, z: number, rotY: number, fallback: { w: number; h: number; d: number; color: string }, tint?: string): THREE.Object3D {
+    const model = this.tinted(id, tint);
+    let o: THREE.Object3D;
+    if (model) {
+      o = model.clone();
+    } else {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(fallback.w, fallback.h, fallback.d), this.mat(fallback.color));
+      m.geometry.translate(0, fallback.h / 2, 0);
+      m.castShadow = m.receiveShadow = true;
+      o = m;
+    }
+    o.position.set(x, 0, z);
+    o.rotation.y = rotY;
+    o.userData.prop = id;
+    this.group.add(o);
+    this.unmerged.push(o);
+    return o;
+  }
+
+  /** tint가 있으면 차체 색만 바꾼 모델 (모델·색마다 한 번 만들어 함께 쓴다) */
+  private tinted(id: PropId, tint?: string): THREE.Object3D | undefined {
+    const model = this.models[id];
+    if (!model || !tint) return model;
+    const key = `${id}/${tint}`;
+    let m = this.tints.get(key);
+    if (!m) this.tints.set(key, (m = recolorBody(model as THREE.Mesh, tint)));
+    return m;
   }
 
   /** 몸을 막는 사각형. top: 올라설 수 있는 윗면 높이(m), 없으면 올라설 수 없다 (J-0) */

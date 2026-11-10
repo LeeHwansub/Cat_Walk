@@ -102,7 +102,39 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 - 파일은 수정하지 않고 이름만 바꿈 (`docs/ASSETS.md` 1.1에 원본 파일명 대응표).
 - 재생할 때 음량(LUFS 기준)과 앞부분 무음을 조정함.
 
-## 6. 직접 만든 것 (외부 출처 없음)
+## 6. 골목 소품 모델 — Polyfork 무료 로우폴리 모델
+
+| 항목 | 내용 |
+|---|---|
+| 용도 | 골목 소품 12종: 차(해치백·경차 밴), 바닥 실외기, 화분, 가로등, 계량기 함, 배달 오토바이, 자전거, 자판기, 쓰레기통, 음료 상자, 고깔 (2026-11-09 시범, D-56) |
+| 모델명 | Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City 키트) |
+| 제작자 | Polyfork (Lucas Martinic) (https://polyfork.dev) |
+| 원본 URL | https://polyfork.dev/kit/japanese-suburban-city-street-baa482 (모델별 페이지는 아래 표) |
+| 다운로드 URL | https://github.com/lucas-martinic/polyfork-catalog (목록의 glb 링크로 받음) |
+| 라이선스 | CC BY 4.0 (Creative Commons Attribution) — https://creativecommons.org/licenses/by/4.0/ (https://polyfork.dev/licensing, 2026-11-09 확인. 출처 표기 없이 쓰는 Polyfork 라이선스도 있으나 이 프로젝트는 CC BY로 표기한다. 모델 파일만 따로 재배포·판매 금지, 상업용 3D 생성 AI 학습 금지) |
+| 상업적 배포 | 확인 전 |
+| 저장소 파일 | `web/public/assets/models/props/*.glb` |
+
+| 파일 | 모델 | 원본 페이지 |
+|---|---|---|
+| `compact-hatchback.glb` | Compact Hatchback | https://polyfork.dev/asset/compact-hatchback-386417 |
+| `kei-van.glb` | Kei Van | https://polyfork.dev/asset/kei-van-211ed5 |
+| `air-con-unit.glb` | Air-Con Unit | https://polyfork.dev/asset/air-con-unit-9fadc2 |
+| `potted-shrub.glb` | Potted Shrub | https://polyfork.dev/asset/potted-shrub-43bd21 |
+| `street-lamp.glb` | Street Lamp | https://polyfork.dev/asset/street-lamp-29f365 |
+| `meter-box.glb` | Meter Box | https://polyfork.dev/asset/meter-box-1e6e42 |
+| `delivery-moped.glb` | Delivery Moped | https://polyfork.dev/asset/delivery-moped-1aa2ce |
+| `city-bicycle.glb` | City Bicycle | https://polyfork.dev/asset/city-bicycle-5b67d1 |
+| `vending-machine.glb` | Vending Machine | https://polyfork.dev/asset/vending-machine-471c29 |
+| `street-bin.glb` | Street Bin | https://polyfork.dev/asset/street-bin-770173 |
+| `beverage-crate.glb` | Beverage Crate | https://polyfork.dev/asset/beverage-crate-c195c9 |
+| `traffic-cone.glb` | Traffic Cone | https://polyfork.dev/asset/traffic-cone-247748 |
+
+### 수정 내역
+- 파일 자체는 수정하지 않고 이름만 바꿈 (끝의 id를 뗌).
+- 게임에서 불러올 때 메시를 하나로 합치고(정점 색 유지), 바닥 기준점·축척을 맞춤.
+
+## 7. 직접 만든 것 (외부 출처 없음)
 - 골골송 녹음 2개: 사용자가 직접 녹음 (`web/public/assets/sounds/purr-*.m4a`).
 - 동네 건물·소품·바닥 텍스처, 바람·새소리 등: 코드로 생성.
 
@@ -112,3 +144,4 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | 2026-11-07 | 문서 작성. Toon Cat FREE, Lowpoly Cat Rig + Run Animation, 울음소리 효과음 기록 |
 | 2026-11-07 | Black Cat(문의 창) 추가 |
 | 2026-11-07 | An Animated Cat(그루밍 동작) 추가 |
+| 2026-11-09 | Polyfork 골목 소품 모델 12종 추가 (시범). An Animated Cat(그루밍 동작)은 쓰지 않게 됨 (D-55, 파일은 남김) |
