@@ -24,7 +24,8 @@ import { Resident } from './systems/npc';
 import { findLanding } from './cat/jump';
 import { PoseHold } from './behavior/poseHold';
 import { isFree, pathClear, STEP_UP } from './world/collision';
-import { buildNeighborhood, type Interest, type Neighborhood } from './world/map/neighborhood';
+import type { Interest, Neighborhood } from './world/map/neighborhood';
+import { disposeMap, mapById } from './world/maps';
 import type { PropModels } from './world/propModels';
 import { Stage } from './world/scene';
 
@@ -54,7 +55,8 @@ export class Game {
   onPoseKey: () => void = () => {};
 
   private readonly stage: Stage;
-  private readonly map: Neighborhood;
+  /** 지금 맵 (switchMap으로 바뀐다, D-58) */
+  private map!: Neighborhood;
   private readonly rig: CatRig;
   private readonly ctrl: CatController;
   private readonly animator = new CatAnimator();
@@ -68,7 +70,7 @@ export class Game {
   private readonly rng: Rng = createRng(Date.now() & 0xffff);
   private readonly stationBowl: FoodBowl;
   private readonly userBowl: FoodBowl;
-  private readonly npc: Resident;
+  private npc!: Resident;
   private readonly timer = new THREE.Timer();
 
   private time = 0;
@@ -103,39 +105,29 @@ export class Game {
     private readonly container: HTMLElement,
     catModel: THREE.Object3D | null = null,
     motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null; poses?: THREE.Object3D | null } = {},
-    propModels: PropModels = {},
+    private readonly propModels: PropModels = {},
   ) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
-    this.map = buildNeighborhood(propModels);
-    this.stage.scene.add(this.map.group);
 
     this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel, motions) : new ProceduralCatRig(this.save.cat);
     this.stage.scene.add(this.rig.root);
-    this.ctrl = new CatController(this.map.collision, this.rig.cycleLength, effectiveScale(this.save.cat.stage, this.save.cat.size));
+    this.ctrl = new CatController({ bounds: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, rects: [], circles: [] }, this.rig.cycleLength, effectiveScale(this.save.cat.stage, this.save.cat.size));
     this.ctrl.girth = girthScale(this.save.cat.build);
-    const start = this.save.position && isFree(this.map.collision, this.save.position.x, this.save.position.z, 0.2) ? this.save.position : this.map.spawn;
-    this.ctrl.x = start.x;
-    this.ctrl.z = start.z;
-    this.ctrl.heading = this.map.spawn.heading;
 
     this.audio.setVoice(this.save.cat.stage === 'kitten', this.save.cat.size);
     this.brain = new BehaviorBrain(this.rng);
     this.brain.interrupt('lookAround', 4, 0);
 
-    const fs = this.map.foodStation;
-    this.stationBowl = new FoodBowl(fs.x, fs.z + 0.02);
+    this.stationBowl = new FoodBowl(0, 0);
     this.stationBowl.setFilled(true);
     this.userBowl = new FoodBowl(0, 0, '#f2c4c4');
     this.userBowl.group.visible = false;
-    this.npc = new Resident(this.map.npcSpot.x, this.map.npcSpot.z, -2.4);
-    this.stage.scene.add(this.stationBowl.group, this.userBowl.group, this.npc.group);
-    this.map.collision.circles.push({ x: this.npc.x, z: this.npc.z, r: 0.28 });
+    this.stage.scene.add(this.stationBowl.group, this.userBowl.group);
     this.gazePicker = new GazePicker(this.rng);
-    this.gazePoints = [
-      ...this.map.interests.filter((i) => GAZE_HEIGHT[i.kind] !== undefined).map((i) => ({ x: i.x, y: GAZE_HEIGHT[i.kind]!, z: i.z })),
-      { x: this.npc.x, y: 1.55, z: this.npc.z }, // 주민 얼굴
-    ];
+    // 저장된 맵과 그 맵 안의 위치 (예전 저장은 골목·공원 동네). 없는 맵이면 기본 맵의 출발점
+    const def = mapById(this.save.mapId);
+    this.loadMap(def.id, def.id === this.save.mapId ? this.save.position : null);
 
     this.cam = new CameraRig(container.clientWidth / container.clientHeight);
     this.cam.attach(this.stage.renderer.domElement, () => this.time);
@@ -148,6 +140,60 @@ export class Game {
       if (document.hidden) this.persist();
     });
     window.addEventListener('pagehide', () => this.persist());
+  }
+
+  /** 지금 맵 id (지도 메뉴 표시용) */
+  get mapId(): string {
+    return this.save.mapId;
+  }
+
+  /**
+   * 다른 맵으로 옮긴다 (D-58): 화면을 잠깐 어둡게 하고, 이전 맵을 내리고, 새 맵의 출발점에서 시작한다.
+   * 먹기·걷기 목표·고른 자세는 끝낸다. 같은 맵이면 아무것도 하지 않는다
+   */
+  switchMap(id: string): void {
+    const def = mapById(id);
+    if (def.id === this.save.mapId) return;
+    const swap = () => {
+      this.clearTargets();
+      this.poseHold.stop();
+      this.blocked = null;
+      this.petUntil = 0;
+      this.userBowl.group.visible = false;
+      this.userBowlHideAt = -1;
+      disposeMap(this.map, this.propModels);
+      this.npc.group.removeFromParent();
+      this.loadMap(def.id, null);
+      this.cam.setMode(this.cam.mode, this.ctrl.heading); // 카메라를 새 자리로 바로 옮긴다
+      this.brain.interrupt('lookAround', 3, this.time);
+      this.persist();
+      this.emitHud();
+    };
+    if (!this.fadeEl) return swap();
+    this.fadeEl.classList.add('on');
+    window.setTimeout(() => {
+      swap();
+      this.fadeEl?.classList.remove('on');
+    }, 220);
+  }
+
+  /** 맵을 짓고 고양이·먹이 쉼터·주민·시선 대상을 그 맵에 맞춘다. at: 그 맵 안의 저장된 위치 (막혀 있으면 출발점) */
+  private loadMap(id: string, at: { x: number; z: number } | null): void {
+    const def = mapById(id);
+    this.map = def.build(this.propModels);
+    this.save.mapId = def.id;
+    this.stage.scene.add(this.map.group);
+    const start = at && isFree(this.map.collision, at.x, at.z, 0.2) ? at : this.map.spawn;
+    this.ctrl.placeIn(this.map.collision, start.x, start.z, this.map.spawn.heading);
+    const fs = this.map.foodStation;
+    this.stationBowl.moveTo(fs.x, fs.z + 0.02);
+    this.npc = new Resident(this.map.npcSpot.x, this.map.npcSpot.z, -2.4);
+    this.stage.scene.add(this.npc.group);
+    this.map.collision.circles.push({ x: this.npc.x, z: this.npc.z, r: 0.28 });
+    this.gazePoints = [
+      ...this.map.interests.filter((i) => GAZE_HEIGHT[i.kind] !== undefined).map((i) => ({ x: i.x, y: GAZE_HEIGHT[i.kind]!, z: i.z })),
+      { x: this.npc.x, y: 1.55, z: this.npc.z }, // 주민 얼굴
+    ];
   }
 
   get hasSave(): boolean {

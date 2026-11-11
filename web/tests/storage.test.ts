@@ -49,6 +49,21 @@ describe('storage', () => {
     expect(loaded.hunger).toBe(def.hunger);
   });
 
+  it('맵 id를 저장하고, 맵 id가 없는 예전 저장은 골목·공원 동네로 읽는다 (D-58)', () => {
+    const store = memoryStore();
+    const save = defaultSave();
+    save.mapId = 'meadow';
+    writeSave(store, save);
+    expect(loadSave(store)!.mapId).toBe('meadow');
+    const old: Record<string, unknown> = { ...defaultSave(), position: { x: 3, z: 1 } };
+    delete old.mapId;
+    store.setItem(SAVE_KEY, JSON.stringify(old));
+    expect(loadSave(store)!.mapId).toBe('neighborhood');
+    expect(loadSave(store)!.position).toEqual({ x: 3, z: 1 }); // 예전 위치는 동네 위치 그대로
+    store.setItem(SAVE_KEY, JSON.stringify({ ...defaultSave(), mapId: 42 }));
+    expect(loadSave(store)!.mapId).toBe('neighborhood');
+  });
+
   it('저장소가 예외를 던져도 앱이 멈추지 않는다', () => {
     const throwing: KeyValueStore = {
       getItem: () => { throw new Error('blocked'); },

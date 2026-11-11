@@ -22,18 +22,23 @@ export interface SaveData {
   cat: CatAppearance;
   settings: Settings;
   hunger: number;
+  /** 지금 있는 맵 (world/maps.ts). 예전 저장에는 없어서 골목·공원 동네로 읽는다 (D-58) */
+  mapId: string;
+  /** mapId 맵 안의 위치 */
   position: { x: number; z: number } | null;
 }
 
 export const SAVE_KEY = 'cat-walk/save';
 const VERSION = 1;
+/** 기본 맵 id (world/maps.ts의 DEFAULT_MAP_ID와 같다. 저장은 맵 모듈을 불러오지 않는다) */
+const DEFAULT_MAP = 'neighborhood';
 
 export function defaultSettings(): Settings {
   return { muteAll: false, muteCat: false, reduceCamShake: true, furQuality: 'auto' };
 }
 
 export function defaultSave(): SaveData {
-  return { version: VERSION, cat: defaultAppearance(), settings: defaultSettings(), hunger: 80, position: null };
+  return { version: VERSION, cat: defaultAppearance(), settings: defaultSettings(), hunger: 80, mapId: DEFAULT_MAP, position: null };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -64,6 +69,8 @@ function sanitize(raw: unknown): SaveData | null {
       furQuality: isFurQuality(settings.furQuality) ? settings.furQuality : def.settings.furQuality,
     },
     hunger: finite(raw.hunger) ? Math.min(100, Math.max(0, raw.hunger)) : def.hunger,
+    // 맵이 있는지는 불러오는 쪽(mapById)이 확인한다: 없는 맵이면 기본 맵으로
+    mapId: typeof raw.mapId === 'string' && raw.mapId.length > 0 && raw.mapId.length <= 40 ? raw.mapId : DEFAULT_MAP,
     position: pos,
   };
 }

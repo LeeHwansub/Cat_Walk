@@ -58,7 +58,7 @@ export class CatController {
   private jumpState: { phase: JumpPhase; t: number; air: number; x0: number; z0: number; y0: number; x1: number; z1: number; y1: number; lead: number } | null = null;
 
   constructor(
-    private readonly world: CollisionWorld,
+    private world: CollisionWorld,
     /** 걷기 한 주기 거리 (모델 크기에 따라 달라진다) */
     public cycleLength: number,
     public scale = 1,
@@ -163,6 +163,22 @@ export class CatController {
     this.accelerate(maxSpeed * this.speedScale * turnSlow * Math.max(0.35, arriveSlow), dt);
     this.advance(dt);
     return false;
+  }
+
+  /** 다른 맵으로 옮긴다 (D-58): 새 충돌 세계의 (x, z) 바닥에 멈춘 채로 선다. 점프·낙하·속도는 처음부터 */
+  placeIn(world: CollisionWorld, x: number, z: number, heading: number): void {
+    this.world = world;
+    this.x = x;
+    this.z = z;
+    this.heading = heading;
+    this.jumpState = null;
+    this.vy = 0;
+    this.speed = 0;
+    this.turnRate = 0;
+    this.edgePush = 0;
+    this.y = groundAt(world, x, z, 0);
+    this.bodyY = this.y;
+    this.bodyPitch = 0;
   }
 
   /** 월드 기준 방향으로 직접 이동 (3인칭 직접 조작) */
