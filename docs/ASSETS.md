@@ -155,6 +155,7 @@ D-18에 따라 사용자가 제공한 파일을 적용했다 (1.1절). 출처는
 - 파일: `web/public/assets/models/props/*.glb` 12개, 합계 약 1.2MB. 텍스처·압축 없음, 재질 1개, 정점 색(COLOR_0), 미터 단위.
 - 코드: `web/src/world/propModels.ts` (목록·축척 `PROP_SPECS`, 굽기 `bakeModel`, 윗면 높이 `topAt`), 배치는 `MapKit.prop`.
 - 후보를 고른 과정: `catalog.json`에서 골목용 20개 → 시범 12개 (외부 계단·블록 담·편의점·셔터·전봇대는 미룸).
+- 공원 (2026-11-10, D-58): Nature & Forest 키트 후보 20개 → 13개(파일). 합계 약 0.84MB, 소품 폴더 전체 25개 약 1.9MB.
 
 ## 7. 문의 창 고양이: Black Cat (2026-11-07, D-34)
 - Sketchfab "Black Cat" — Kinga Kroliczek, CC BY 4.0 (2023-10-16 공개, API·glb 메타데이터로 확인). 뼈대·동작 없는 정지 모델(메시 6개, 텍스처 1장).
