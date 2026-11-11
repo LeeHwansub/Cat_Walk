@@ -579,3 +579,124 @@ kbd {
     font-size: 10px;
   }
 }
+
+/* ---- 함께 놀기 (멀티플레이, D-59) */
+.text-input {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.field .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hud-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.net-badge {
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* 채팅: 왼쪽 위 (모바일 조이스틱과 겹치지 않게) */
+.chat {
+  position: absolute;
+  top: 64px;
+  left: 16px;
+  width: min(320px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 30vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  overflow-wrap: anywhere;
+}
+
+.chat-log b {
+  margin-right: 6px;
+}
+
+.chat-log .mine b {
+  color: #ffd9b8;
+}
+
+.chat-form,
+.chat-form input {
+  pointer-events: auto;
+}
+
+.chat-form input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* 다른 고양이 머리 위 닉네임·말풍선 */
+.net-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.net-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.net-name {
+  font-size: 12px;
+  color: #fff;
+  background: rgba(59, 51, 48, 0.55);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.net-bubble {
+  max-width: 200px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  border-radius: 12px;
+  padding: 5px 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}

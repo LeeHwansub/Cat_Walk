@@ -1,11 +1,11 @@
 import type { JumpWeights } from './jump';
-import type { BehaviorId } from '../behavior/types';
+import type { AnimBehavior } from '../behavior/types';
 import { runWeight, WALK_SPEED } from './CatController';
 import type { GazeAngles } from './gaze';
 import { neutralPose, type CatPose } from './pose';
 
 /** 애니메이션 전용 동작: 먹은 뒤 입 핥기 */
-export type AnimBehavior = BehaviorId | 'lickLips';
+export type { AnimBehavior };
 
 export interface AnimInput {
   behavior: AnimBehavior;

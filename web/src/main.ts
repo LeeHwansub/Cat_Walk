@@ -1,7 +1,11 @@
 import type * as THREE from 'three';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CAT_GROOM_URL, CAT_POSES_URL, loadCatModel, loadMotion, loadRunMotion } from './cat/catModel';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Game } from './game';
+import type { CatAppearance } from './cat/appearance';
+import { ProceduralCatRig } from './cat/ProceduralCatRig';
+import { SkinnedCatRig } from './cat/SkinnedCatRig';
 import { loadPropModels, type PropModels } from './world/propModels';
 import { bindUi } from './ui/ui';
 
@@ -24,7 +28,17 @@ async function boot(): Promise<void> {
     }
   }
   const propModels: PropModels = await propsLoading;
-  const game = new Game(container, catModel, { run: runMotion, groom: groomMotion, poses: liePoses }, propModels);
+  const motions = { run: runMotion, groom: groomMotion, poses: liePoses };
+  // 다른 사람 고양이(멀티플레이, D-59)용 원본: 내 고양이가 모델 장면을 가져다 쓰기 전에 복제해 둔다. 동작 파일은 읽기만 해서 함께 쓴다
+  const template = catModel ? cloneSkinned(catModel) : null;
+  if (template && catModel) template.animations = catModel.animations;
+  const makeRemoteRig = (look: CatAppearance) => {
+    if (!template) return new ProceduralCatRig(look);
+    const scene = cloneSkinned(template);
+    scene.animations = template.animations; // 걷기 클립
+    return new SkinnedCatRig(look, scene, motions);
+  };
+  const game = new Game(container, catModel, motions, propModels, makeRemoteRig);
   bindUi(game);
   game.start();
   // 개발 서버에서만 브라우저 점검용으로 노출한다 (프로덕션 빌드에서는 제거됨)

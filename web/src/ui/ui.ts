@@ -39,9 +39,11 @@ export function bindUi(game: Game): void {
   // ---------------- 시작 화면
   const btnContinue = $<HTMLButtonElement>('btn-continue');
   btnContinue.disabled = !game.hasSave;
+  const nickInput = $<HTMLInputElement>('opt-nick');
   $('btn-new').onclick = () => {
     firstGesture();
     draft = { ...game.save.cat };
+    nickInput.value = game.nick;
     renderCreate();
     show(start, false);
     show(create, true);
@@ -67,6 +69,7 @@ export function bindUi(game: Game): void {
   };
   $('btn-create-done').onclick = () => {
     game.setAppearance(draft);
+    game.setNick(nickInput.value); // 비었거나 규칙에 맞지 않으면 그대로 (놀이를 시작할 때 자동 이름)
     game.persist();
     show(create, false);
     show(hud, true);
@@ -135,6 +138,55 @@ export function bindUi(game: Game): void {
   game.onPoseKey = () => poseMenu.toggle();
   $('btn-settings').onclick = () => openSettings();
 
+  // ---------------- 함께 놀기 (멀티플레이, D-59): 접속 상태·인원, 채팅
+  const badge = $('net-badge');
+  const chat = $('chat');
+  const chatLog = $('chat-log');
+  const chatForm = $<HTMLFormElement>('chat-form');
+  const chatInput = $<HTMLInputElement>('chat-input');
+  const btnChat = $<HTMLButtonElement>('btn-chat');
+  let online = false;
+  game.onNet = (status, count) => {
+    online = status === 'online';
+    badge.textContent = online ? `함께 ${count}명` : '연결 중…';
+    show(badge, status !== 'off');
+    show(chat, online);
+    show(btnChat, online);
+    if (!online) closeChat();
+  };
+  game.onChat = (nick, text, mine) => {
+    const li = document.createElement('li');
+    li.classList.toggle('mine', mine);
+    const who = document.createElement('b');
+    who.textContent = nick; // 글자로만 넣는다 (다른 사람이 보낸 HTML을 해석하지 않음)
+    li.append(who, document.createTextNode(text));
+    chatLog.appendChild(li);
+    while (chatLog.children.length > 30) chatLog.firstElementChild?.remove();
+  };
+  function openChat() {
+    if (!online) return;
+    show(chatForm, true);
+    chatInput.focus();
+  }
+  function closeChat() {
+    chatInput.value = '';
+    chatInput.blur();
+    show(chatForm, false);
+  }
+  chatForm.onsubmit = (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (text) game.sendChat(text);
+    closeChat();
+  };
+  btnChat.onclick = () => (chatForm.classList.contains('hidden') ? openChat() : closeChat());
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Enter' || game.phase !== 'play' || document.activeElement instanceof HTMLInputElement) return;
+    if (!settings.classList.contains('hidden')) return;
+    e.preventDefault();
+    openChat();
+  });
+
   game.onHud = (s: HudState) => {
     $('hunger-fill').style.width = `${Math.round(s.hunger)}%`;
     $('hunger-label').textContent = hungerLabel(s.hunger);
@@ -149,7 +201,16 @@ export function bindUi(game: Game): void {
   const muteCat = $<HTMLInputElement>('set-mute-cat');
   const shake = $<HTMLInputElement>('set-shake');
   const fur = $<HTMLSelectElement>('set-fur');
+  const setOnline = $<HTMLInputElement>('set-online');
+  const setNick = $<HTMLInputElement>('set-nick');
+  setOnline.onchange = () => game.setOnline(setOnline.checked);
+  setNick.onchange = () => {
+    game.setNick(setNick.value);
+    setNick.value = game.nick; // 규칙에 맞게 바뀐 이름을 보여 준다
+  };
   function openSettings() {
+    setOnline.checked = game.save.online;
+    setNick.value = game.nick;
     const s = game.save.settings;
     muteAll.checked = s.muteAll;
     muteCat.checked = s.muteCat;
@@ -171,6 +232,7 @@ export function bindUi(game: Game): void {
   };
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'Escape') return;
+    if (document.activeElement === chatInput) return closeChat();
     if (poseMenu.isOpen()) return poseMenu.close();
     if (settings.classList.contains('hidden')) {
       if (game.phase === 'play') openSettings();
