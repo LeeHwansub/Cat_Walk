@@ -64,6 +64,24 @@ describe('storage', () => {
     expect(loadSave(store)!.mapId).toBe('neighborhood');
   });
 
+  it('닉네임·함께 놀기를 저장하고, 예전 저장은 닉네임 없음·함께 놀기 켜짐 (D-59)', () => {
+    const store = memoryStore();
+    const save = defaultSave();
+    expect(save.nick).toBe('');
+    expect(save.online).toBe(true);
+    save.nick = '뽀리';
+    save.online = false;
+    writeSave(store, save);
+    expect(loadSave(store)).toMatchObject({ nick: '뽀리', online: false });
+    const old: Record<string, unknown> = { ...defaultSave() };
+    delete old.nick;
+    delete old.online;
+    store.setItem(SAVE_KEY, JSON.stringify(old));
+    expect(loadSave(store)).toMatchObject({ nick: '', online: true });
+    store.setItem(SAVE_KEY, JSON.stringify({ ...defaultSave(), nick: '\u0000'.repeat(3) + '가'.repeat(40) }));
+    expect(loadSave(store)!.nick).toBe('가'.repeat(12)); // 닉네임 규칙(제어 문자 제거, 12자)
+  });
+
   it('저장소가 예외를 던져도 앱이 멈추지 않는다', () => {
     const throwing: KeyValueStore = {
       getItem: () => { throw new Error('blocked'); },

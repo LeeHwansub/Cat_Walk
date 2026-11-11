@@ -89,7 +89,13 @@ export class VirtualJoystick {
   }
 }
 
-/** 터치가 주 입력인 기기인지 (휴대폰·태블릿) */
+/**
+ * 손가락으로 조작할 수 있는 기기인지 (휴대폰·태블릿·터치 화면).
+ * 주 입력(pointer)만 보면 데스크톱 보기·키보드를 붙인 태블릿에서 아니라고 나와 조이스틱이 없었다 (사용자 보고 2026-11-11):
+ * 아무 입력(any-pointer)이 손가락이거나 터치 지점이 있으면 터치 기기로 본다
+ */
 export function isTouchDevice(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const mq = (q: string) => typeof matchMedia === 'function' && matchMedia(q).matches;
+  const touchPoints = typeof navigator !== 'undefined' ? (navigator.maxTouchPoints ?? 0) : 0;
+  return mq('(pointer: coarse)') || mq('(any-pointer: coarse)') || touchPoints > 0;
 }

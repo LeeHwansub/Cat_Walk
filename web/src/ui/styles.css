@@ -579,3 +579,222 @@ kbd {
     font-size: 10px;
   }
 }
+
+/* ---- 함께 놀기 (멀티플레이, D-59) */
+.text-input {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.field .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hud-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.net-badge {
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* 채팅: 왼쪽 위 (모바일 조이스틱과 겹치지 않게) */
+.chat {
+  position: absolute;
+  top: 64px;
+  left: 16px;
+  width: min(320px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 30vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  overflow-wrap: anywhere;
+}
+
+.chat-log b {
+  margin-right: 6px;
+}
+
+.chat-log .mine b {
+  color: #ffd9b8;
+}
+
+.chat-form,
+.chat-form input {
+  pointer-events: auto;
+}
+
+.chat-form input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* 다른 고양이 머리 위 닉네임·말풍선 */
+.net-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.net-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.net-name {
+  font-size: 12px;
+  color: #fff;
+  background: rgba(59, 51, 48, 0.55);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.net-bubble {
+  max-width: 200px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  border-radius: 12px;
+  padding: 5px 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/*
+ * 작은 화면 배치 (body.compact: 터치 기기이거나 폭 640px 이하, ui.ts). 사용자 요청 2026-11-11 "모바일 크기·정렬 정리".
+ * 아래 버튼은 한 줄(키 표시 숨김), 조이스틱·점프는 그 위에 같은 높이로, 위 막대는 한 줄로. 키보드 안내 문구는 숨긴다(정보 페이지 i에 있음)
+ */
+body.compact .hint,
+body.compact .pill kbd,
+body.compact .lbl-long,
+.lbl-short {
+  display: none;
+}
+
+body.compact .lbl-short {
+  display: inline;
+}
+
+body.compact .hud-top {
+  top: max(10px, env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  align-items: flex-start;
+}
+
+body.compact .hud-left {
+  gap: 6px;
+}
+
+body.compact .hunger {
+  font-size: 12px;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+}
+
+body.compact .hunger .bar {
+  width: 52px;
+}
+
+body.compact .net-badge {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+body.compact .hud-actions {
+  gap: 6px;
+}
+
+body.compact .icon-btn,
+body.compact .icon-link {
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+}
+
+body.compact .hud-bottom {
+  bottom: max(12px, env(safe-area-inset-bottom));
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 0 10px;
+}
+
+body.compact .pill {
+  font-size: 13px;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
+body.compact .chat {
+  top: calc(max(10px, env(safe-area-inset-top)) + 44px);
+  left: max(10px, env(safe-area-inset-left));
+  width: min(260px, calc(100vw - 20px));
+}
+
+body.compact .chat-log {
+  max-height: 22vh;
+  font-size: 12px;
+}
+
+/* 조이스틱(116px)과 점프(76px): 버튼 줄 위로 띄우고 가운데 높이를 맞춘다 */
+body.compact .joystick {
+  width: 116px;
+  height: 116px;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 60px);
+}
+
+body.compact .jump-btn {
+  width: 76px;
+  height: 76px;
+  font-size: 15px;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 80px);
+}
+
+/* 포즈 메뉴가 열려 있는 동안에는 조이스틱·점프를 숨긴다 (자세 칸과 겹치지 않게) */
+#hud:has(.pose-menu:not(.hidden)) .joystick,
+#hud:has(.pose-menu:not(.hidden)) .jump-btn {
+  visibility: hidden;
+}

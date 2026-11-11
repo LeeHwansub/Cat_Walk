@@ -12,10 +12,22 @@ export function bindUi(game: Game): void {
   const start = $('screen-start');
   const create = $('screen-create');
   const hud = $('hud');
-  // 모바일: 왼쪽 아래 조이스틱 (터치 기기에서만), 안내 문구도 터치 조작으로
-  if (isTouchDevice()) {
+  // 모바일: 왼쪽 아래 조이스틱 + 오른쪽 아래 점프 버튼 (J-2).
+  // 터치 기기로 보이면 바로, 아니어도 손가락으로 화면을 처음 누르는 순간 만든다 (감지가 빗나가도 움직일 수 있게, 2026-11-11)
+  let touchControls = false;
+  // 작은 화면 배치 (터치 기기이거나 폭 640px 이하): 아래 버튼 한 줄·짧은 이름, 키 표시·안내 문구 숨김 (styles.css body.compact)
+  const narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 640px)') : null;
+  let lastHud: HudState | null = null;
+  const updateCompact = () => {
+    document.body.classList.toggle('compact', touchControls || !!narrow?.matches);
+    if (lastHud) game.onHud(lastHud);
+  };
+  narrow?.addEventListener('change', updateCompact);
+  const addTouchControls = () => {
+    if (touchControls) return;
+    touchControls = true;
+    updateCompact();
     new VirtualJoystick(hud, (s) => game.setStick(s));
-    // 오른쪽 아래 점프 버튼 (J-2)
     const jump = document.createElement('button');
     jump.className = 'jump-btn';
     jump.type = 'button';
@@ -25,8 +37,16 @@ export function bindUi(game: Game): void {
       game.pressJump();
     });
     hud.appendChild(jump);
-    const hint = hud.querySelector('.hint');
-    if (hint) hint.textContent = '조이스틱 이동 (끝까지 밀면 달리기) · 점프 버튼 · 화면 드래그 회전 · 고양이 탭 쓰다듬기';
+  };
+  updateCompact();
+  if (isTouchDevice()) addTouchControls();
+  else {
+    const onFirstTouch = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return;
+      window.removeEventListener('pointerdown', onFirstTouch);
+      addTouchControls();
+    };
+    window.addEventListener('pointerdown', onFirstTouch);
   }
   const settings = $('settings');
   game.setFadeElement($('fade'));
@@ -39,9 +59,11 @@ export function bindUi(game: Game): void {
   // ---------------- 시작 화면
   const btnContinue = $<HTMLButtonElement>('btn-continue');
   btnContinue.disabled = !game.hasSave;
+  const nickInput = $<HTMLInputElement>('opt-nick');
   $('btn-new').onclick = () => {
     firstGesture();
     draft = { ...game.save.cat };
+    nickInput.value = game.nick;
     renderCreate();
     show(start, false);
     show(create, true);
@@ -67,6 +89,7 @@ export function bindUi(game: Game): void {
   };
   $('btn-create-done').onclick = () => {
     game.setAppearance(draft);
+    game.setNick(nickInput.value); // 비었거나 규칙에 맞지 않으면 그대로 (놀이를 시작할 때 자동 이름)
     game.persist();
     show(create, false);
     show(hud, true);
@@ -135,13 +158,66 @@ export function bindUi(game: Game): void {
   game.onPoseKey = () => poseMenu.toggle();
   $('btn-settings').onclick = () => openSettings();
 
+  // ---------------- 함께 놀기 (멀티플레이, D-59): 접속 상태·인원, 채팅
+  const badge = $('net-badge');
+  const chat = $('chat');
+  const chatLog = $('chat-log');
+  const chatForm = $<HTMLFormElement>('chat-form');
+  const chatInput = $<HTMLInputElement>('chat-input');
+  const btnChat = $<HTMLButtonElement>('btn-chat');
+  let online = false;
+  game.onNet = (status, count) => {
+    online = status === 'online';
+    badge.textContent = online ? `함께 ${count}명` : '연결 중…';
+    show(badge, status !== 'off');
+    show(chat, online);
+    show(btnChat, online);
+    if (!online) closeChat();
+  };
+  game.onChat = (nick, text, mine) => {
+    const li = document.createElement('li');
+    li.classList.toggle('mine', mine);
+    const who = document.createElement('b');
+    who.textContent = nick; // 글자로만 넣는다 (다른 사람이 보낸 HTML을 해석하지 않음)
+    li.append(who, document.createTextNode(text));
+    chatLog.appendChild(li);
+    while (chatLog.children.length > 30) chatLog.firstElementChild?.remove();
+  };
+  function openChat() {
+    if (!online) return;
+    show(chatForm, true);
+    chatInput.focus();
+  }
+  function closeChat() {
+    chatInput.value = '';
+    chatInput.blur();
+    show(chatForm, false);
+  }
+  chatForm.onsubmit = (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (text) game.sendChat(text);
+    closeChat();
+  };
+  btnChat.onclick = () => (chatForm.classList.contains('hidden') ? openChat() : closeChat());
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Enter' || game.phase !== 'play' || document.activeElement instanceof HTMLInputElement) return;
+    if (!settings.classList.contains('hidden')) return;
+    e.preventDefault();
+    openChat();
+  });
+
   game.onHud = (s: HudState) => {
+    lastHud = s;
+    const compact = document.body.classList.contains('compact');
     $('hunger-fill').style.width = `${Math.round(s.hunger)}%`;
     $('hunger-label').textContent = hungerLabel(s.hunger);
-    btnMode.textContent = s.mode === 'auto' ? '자동 생활' : s.manualLocked ? '직접 조작 (고정)' : '직접 조작';
+    // 작은 화면에서는 아래 버튼이 한 줄에 들어가게 짧은 이름 (2026-11-11)
+    if (compact) btnMode.textContent = s.mode === 'auto' ? '자동' : s.manualLocked ? '직접 고정' : '직접';
+    else btnMode.textContent = s.mode === 'auto' ? '자동 생활' : s.manualLocked ? '직접 조작 (고정)' : '직접 조작';
     btnMode.classList.toggle('active', s.mode === 'manual');
     btnMode.title = s.mode === 'auto' ? '누르면 직접 조작 모드로 고정' : '누르면 자동 생활로 돌아감';
-    btnCam.innerHTML = `${s.camera === 'follow' ? '고양이 시점' : '3인칭 시점'} <kbd>C</kbd>`;
+    btnCam.innerHTML = compact ? '시점' : `${s.camera === 'follow' ? '고양이 시점' : '3인칭 시점'} <kbd>C</kbd>`;
   };
 
   // ---------------- 설정
@@ -149,7 +225,16 @@ export function bindUi(game: Game): void {
   const muteCat = $<HTMLInputElement>('set-mute-cat');
   const shake = $<HTMLInputElement>('set-shake');
   const fur = $<HTMLSelectElement>('set-fur');
+  const setOnline = $<HTMLInputElement>('set-online');
+  const setNick = $<HTMLInputElement>('set-nick');
+  setOnline.onchange = () => game.setOnline(setOnline.checked);
+  setNick.onchange = () => {
+    game.setNick(setNick.value);
+    setNick.value = game.nick; // 규칙에 맞게 바뀐 이름을 보여 준다
+  };
   function openSettings() {
+    setOnline.checked = game.save.online;
+    setNick.value = game.nick;
     const s = game.save.settings;
     muteAll.checked = s.muteAll;
     muteCat.checked = s.muteCat;
@@ -171,6 +256,7 @@ export function bindUi(game: Game): void {
   };
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'Escape') return;
+    if (document.activeElement === chatInput) return closeChat();
     if (poseMenu.isOpen()) return poseMenu.close();
     if (settings.classList.contains('hidden')) {
       if (game.phase === 'play') openSettings();

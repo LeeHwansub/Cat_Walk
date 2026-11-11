@@ -1,0 +1,17 @@
+// Cat Walk: 정적 파일(dist) + 멀티플레이 방 서버 (D-59)
+{
+  "name": "cat-walk",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-20",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // /api/* 만 서버 코드가 먼저 받고, 나머지는 정적 파일을 바로 준다
+    "run_worker_first": ["/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  // 무료 플랜은 SQLite 방식 Durable Object만 쓸 수 있다
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+}

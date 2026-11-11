@@ -31,6 +31,10 @@
       <div class="panel create-panel">
         <h2>나의 고양이</h2>
         <div class="field">
+          <label class="label" for="opt-nick">닉네임</label>
+          <input id="opt-nick" class="text-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="함께 놀기에서 보이는 이름 (비우면 자동)" />
+        </div>
+        <div class="field">
           <span class="label">프리셋</span>
           <div id="opt-presets" class="chips"></div>
         </div>
@@ -77,10 +81,14 @@
     <!-- 플레이 HUD -->
     <section id="hud" class="hidden">
       <div class="hud-top">
-        <div class="hunger" title="배고픔">
-          <span class="hunger-icon">배고픔</span>
-          <div class="bar"><div id="hunger-fill"></div></div>
-          <span id="hunger-label"></span>
+        <div class="hud-left">
+          <div class="hunger" title="배고픔">
+            <span class="hunger-icon">배고픔</span>
+            <div class="bar"><div id="hunger-fill"></div></div>
+            <span id="hunger-label"></span>
+          </div>
+          <!-- 함께 놀기 (멀티플레이, D-59): 접속 상태와 방 인원 -->
+          <span id="net-badge" class="net-badge hidden" aria-live="polite"></span>
         </div>
         <div class="hud-actions">
           <a class="icon-link" href="./info.html" target="_blank" rel="noopener noreferrer" aria-label="정보: 이용 방법·개인정보 처리방침·출처" title="정보·출처">i</a>
@@ -90,8 +98,16 @@
       <div class="hud-bottom">
         <button id="btn-mode" class="pill"></button>
         <button id="btn-camera" class="pill"></button>
-        <button id="btn-feed" class="pill">먹이 주기 <kbd>F</kbd></button>
+        <button id="btn-feed" class="pill"><span class="lbl-long">먹이 주기</span><span class="lbl-short">먹이</span> <kbd>F</kbd></button>
         <button id="btn-pose" class="pill">포즈 <kbd>P</kbd></button>
+        <button id="btn-chat" class="pill hidden">채팅 <kbd>Enter</kbd></button>
+      </div>
+      <!-- 채팅: 같은 방 사람들의 대화 (글자로만 표시) -->
+      <div id="chat" class="chat hidden">
+        <ol id="chat-log" class="chat-log" aria-live="polite"></ol>
+        <form id="chat-form" class="chat-form hidden">
+          <input id="chat-input" maxlength="100" autocomplete="off" spellcheck="false" placeholder="채팅 (Enter 보내기 · Esc 닫기)" aria-label="채팅 입력" />
+        </form>
       </div>
       <p class="hint">WASD·방향키 이동 · Shift 달리기 · Space 점프 · P 포즈 · 드래그 회전 · 휠 줌 · 고양이 클릭 쓰다듬기</p>
     </section>
@@ -103,6 +119,10 @@
         <label class="check"><input type="checkbox" id="set-mute-all" /> 전체 음소거</label>
         <label class="check"><input type="checkbox" id="set-mute-cat" /> 고양이 울음소리 끄기</label>
         <label class="check"><input type="checkbox" id="set-shake" /> 고양이 시점 흔들림 줄이기</label>
+        <label class="check"><input type="checkbox" id="set-online" /> 함께 놀기 (다른 사람과 접속)</label>
+        <label class="select">닉네임
+          <input id="set-nick" class="text-input" maxlength="12" autocomplete="off" spellcheck="false" />
+        </label>
         <label class="select">털 표현
           <select id="set-fur">
             <option value="auto">자동 (기기에 맞춤)</option>

@@ -15,6 +15,9 @@ export type BehaviorId =
   | 'tailWrap'
   | 'manSit';
 
+/** 애니메이터가 그리는 행동 (자율 행동 + 먹은 뒤 입 핥기). 멀티플레이로도 주고받는다 */
+export type AnimBehavior = BehaviorId | 'lickLips';
+
 /** 맵의 관심 지점 종류. 자율 행동이 주변 환경에 반응하는 근거가 된다. (기획서 5.4) */
 export type InterestKind = 'grass' | 'flower' | 'pot' | 'car' | 'food' | 'sunspot' | 'bench' | 'pond';
 

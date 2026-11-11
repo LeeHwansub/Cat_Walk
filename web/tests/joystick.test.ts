@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { RUN_PUSH, stickVector } from '../src/ui/joystick';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isTouchDevice, RUN_PUSH, stickVector } from '../src/ui/joystick';
 
 describe('가상 조이스틱 (모바일)', () => {
   it('가운데 근처(데드존)는 움직이지 않는다', () => {
@@ -30,5 +30,30 @@ describe('가상 조이스틱 (모바일)', () => {
   it('끝까지 밀어야 달리기 크기에 닿는다', () => {
     expect(stickVector(0, -40, 60).mag).toBeLessThan(RUN_PUSH);
     expect(stickVector(0, -60, 60).mag).toBeGreaterThanOrEqual(RUN_PUSH);
+  });
+});
+
+describe('터치 기기 감지 (사용자 보고 2026-11-11: 모바일에서 조이스틱이 없어 움직이기 힘듦)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const env = (coarse: string[], touchPoints: number) => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: coarse.includes(q) }));
+    vi.stubGlobal('navigator', { maxTouchPoints: touchPoints });
+  };
+
+  it('주 입력이 손가락이면 터치 기기', () => {
+    env(['(pointer: coarse)'], 5);
+    expect(isTouchDevice()).toBe(true);
+  });
+
+  it('주 입력은 마우스로 알려도(데스크톱 보기·키보드 연결 태블릿) 손가락 입력이 있으면 터치 기기', () => {
+    env(['(any-pointer: coarse)'], 0);
+    expect(isTouchDevice()).toBe(true);
+    env([], 5);
+    expect(isTouchDevice()).toBe(true);
+  });
+
+  it('손가락 입력이 전혀 없으면(마우스만 있는 PC) 아니다', () => {
+    env([], 0);
+    expect(isTouchDevice()).toBe(false);
   });
 });

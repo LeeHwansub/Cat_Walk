@@ -1,5 +1,6 @@
 import { isFurQuality, type FurQuality } from '../cat/fur';
-import { clampBuild, clampSize, defaultAppearance, isEarType, isHexColor, isPattern, isStage, type CatAppearance } from '../cat/appearance';
+import { defaultAppearance, sanitizeAppearance, type CatAppearance } from '../cat/appearance';
+import { cleanNick } from '../net/protocol';
 
 /** localStorage와 같은 모양의 저장소. 테스트에서 메모리 저장소로 바꿔 끼운다. */
 export interface KeyValueStore {
@@ -24,6 +25,10 @@ export interface SaveData {
   hunger: number;
   /** 지금 있는 맵 (world/maps.ts). 예전 저장에는 없어서 골목·공원 동네로 읽는다 (D-58) */
   mapId: string;
+  /** 멀티플레이 닉네임 (비면 접속할 때 정한다, D-59) */
+  nick: string;
+  /** 함께 놀기: 같은 맵의 다른 사람과 접속 (끄면 혼자) */
+  online: boolean;
   /** mapId 맵 안의 위치 */
   position: { x: number; z: number } | null;
 }
@@ -38,7 +43,7 @@ export function defaultSettings(): Settings {
 }
 
 export function defaultSave(): SaveData {
-  return { version: VERSION, cat: defaultAppearance(), settings: defaultSettings(), hunger: 80, mapId: DEFAULT_MAP, position: null };
+  return { version: VERSION, cat: defaultAppearance(), settings: defaultSettings(), hunger: 80, mapId: DEFAULT_MAP, nick: '', online: true, position: null };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -47,21 +52,11 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 function sanitize(raw: unknown): SaveData | null {
   if (!isRecord(raw) || raw.version !== VERSION) return null;
   const def = defaultSave();
-  const cat = isRecord(raw.cat) ? raw.cat : {};
   const settings = isRecord(raw.settings) ? raw.settings : {};
   const pos = isRecord(raw.position) && finite(raw.position.x) && finite(raw.position.z) ? { x: raw.position.x, z: raw.position.z } : null;
-  const stage = isStage(cat.stage) ? cat.stage : def.cat.stage;
   return {
     version: VERSION,
-    cat: {
-      furColor: isHexColor(cat.furColor) ? cat.furColor : def.cat.furColor,
-      pattern: isPattern(cat.pattern) ? cat.pattern : def.cat.pattern,
-      eyeColor: isHexColor(cat.eyeColor) ? cat.eyeColor : def.cat.eyeColor,
-      stage,
-      size: typeof cat.size === 'number' ? clampSize(stage, cat.size) : 1,
-      build: typeof cat.build === 'number' ? clampBuild(cat.build) : 1,
-      ear: isEarType(cat.ear) ? cat.ear : 'up',
-    },
+    cat: sanitizeAppearance(raw.cat),
     settings: {
       muteAll: typeof settings.muteAll === 'boolean' ? settings.muteAll : def.settings.muteAll,
       muteCat: typeof settings.muteCat === 'boolean' ? settings.muteCat : def.settings.muteCat,
@@ -71,6 +66,8 @@ function sanitize(raw: unknown): SaveData | null {
     hunger: finite(raw.hunger) ? Math.min(100, Math.max(0, raw.hunger)) : def.hunger,
     // 맵이 있는지는 불러오는 쪽(mapById)이 확인한다: 없는 맵이면 기본 맵으로
     mapId: typeof raw.mapId === 'string' && raw.mapId.length > 0 && raw.mapId.length <= 40 ? raw.mapId : DEFAULT_MAP,
+    nick: cleanNick(raw.nick) ?? '',
+    online: typeof raw.online === 'boolean' ? raw.online : true,
     position: pos,
   };
 }

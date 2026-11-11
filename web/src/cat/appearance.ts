@@ -107,3 +107,20 @@ export function isPattern(v: unknown): v is PatternId {
 export function isStage(v: unknown): v is GrowthStage {
   return v === 'kitten' || v === 'adult';
 }
+
+/** 바깥에서 온 외형 값(저장 파일, 다른 사람의 접속)을 검사해 바로잡는다. 이상한 값은 기본값으로 */
+export function sanitizeAppearance(raw: unknown): CatAppearance {
+  const def = defaultAppearance();
+  const cat = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const stage = isStage(cat.stage) ? cat.stage : def.stage;
+  const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  return {
+    furColor: isHexColor(cat.furColor) ? cat.furColor : def.furColor,
+    pattern: isPattern(cat.pattern) ? cat.pattern : def.pattern,
+    eyeColor: isHexColor(cat.eyeColor) ? cat.eyeColor : def.eyeColor,
+    stage,
+    size: num(cat.size) ? clampSize(stage, cat.size) : 1,
+    build: num(cat.build) ? clampBuild(cat.build) : 1,
+    ear: isEarType(cat.ear) ? cat.ear : 'up',
+  };
+}

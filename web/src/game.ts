@@ -28,6 +28,10 @@ import type { Interest, Neighborhood } from './world/map/neighborhood';
 import { disposeMap, mapById } from './world/maps';
 import type { PropModels } from './world/propModels';
 import { Stage } from './world/scene';
+import { NetClient, type NetStatus } from './net/client';
+import { shouldSend } from './net/interp';
+import { cleanNick, type CatState } from './net/protocol';
+import { RemotePlayers } from './net/remotePlayers';
 
 export type Phase = 'menu' | 'create' | 'play';
 export type ControlMode = 'auto' | 'manual';
@@ -53,6 +57,9 @@ export class Game {
   onHud: (s: HudState) => void = () => {};
   /** P 키: 포즈 메뉴 열고 닫기 (UI가 정한다) */
   onPoseKey: () => void = () => {};
+  /** 멀티플레이 (D-59): 채팅 받음, 접속 상태·방 인원 */
+  onChat: (nick: string, text: string, mine: boolean) => void = () => {};
+  onNet: (status: NetStatus, count: number) => void = () => {};
 
   private readonly stage: Stage;
   /** 지금 맵 (switchMap으로 바뀐다, D-58) */
@@ -98,6 +105,13 @@ export class Game {
   private saveTimer = 0;
   private hudTimer = 0;
   private fadeEl: HTMLElement | null = null;
+  /** 멀티플레이: 방 접속, 다른 사람 고양이, 마지막으로 보낸 내 상태 */
+  private readonly net = new NetClient(location.origin);
+  private readonly remotes: RemotePlayers;
+  private netStatus: NetStatus = 'off';
+  private joinedKey = '';
+  private lastSent: CatState | null = null;
+  private lastSentAt = -1;
   private resetting = false;
 
   /** catModel: 불러온 glb 고양이(없으면 이전 도형 모델) */
@@ -106,6 +120,8 @@ export class Game {
     catModel: THREE.Object3D | null = null,
     motions: { run?: THREE.Object3D | null; groom?: THREE.Object3D | null; poses?: THREE.Object3D | null } = {},
     private readonly propModels: PropModels = {},
+    /** 다른 사람 고양이 모델을 만든다 (glb를 복제, 없으면 도형 모델) */
+    makeRemoteRig: (look: CatAppearance) => CatRig = (look) => new ProceduralCatRig(look),
   ) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
@@ -128,6 +144,16 @@ export class Game {
     // 저장된 맵과 그 맵 안의 위치 (예전 저장은 골목·공원 동네). 없는 맵이면 기본 맵의 출발점
     const def = mapById(this.save.mapId);
     this.loadMap(def.id, def.id === this.save.mapId ? this.save.position : null);
+
+    this.remotes = new RemotePlayers(this.stage.scene, makeRemoteRig);
+    this.remotes.onChat = (nick, text, mine) => this.onChat(nick, text, mine);
+    this.remotes.onCount = (n) => this.onNet(this.netStatus, n);
+    this.net.onMessage = (m) => this.remotes.handle(m, this.time);
+    this.net.onStatus = (st) => {
+      this.netStatus = st;
+      if (st !== 'online') this.remotes.clear();
+      this.onNet(st, this.remotes.count);
+    };
 
     this.cam = new CameraRig(container.clientWidth / container.clientHeight);
     this.cam.attach(this.stage.renderer.domElement, () => this.time);
@@ -164,6 +190,7 @@ export class Game {
       disposeMap(this.map, this.propModels);
       this.npc.group.removeFromParent();
       this.loadMap(def.id, null);
+      this.connectNet(); // 새 맵의 방으로
       this.cam.setMode(this.cam.mode, this.ctrl.heading); // 카메라를 새 자리로 바로 옮긴다
       this.brain.interrupt('lookAround', 3, this.time);
       this.persist();
@@ -194,6 +221,73 @@ export class Game {
       ...this.map.interests.filter((i) => GAZE_HEIGHT[i.kind] !== undefined).map((i) => ({ x: i.x, y: GAZE_HEIGHT[i.kind]!, z: i.z })),
       { x: this.npc.x, y: 1.55, z: this.npc.z }, // 주민 얼굴
     ];
+  }
+
+  // ---------------------------------------------------------------- 멀티플레이 (D-59)
+
+  get nick(): string {
+    return this.save.nick;
+  }
+
+  /** 닉네임을 바꾼다 (규칙에 맞지 않으면 그대로). 접속 중이면 다시 들어가 새 이름을 알린다 */
+  setNick(nick: string): void {
+    const n = cleanNick(nick);
+    if (!n) return;
+    this.save.nick = n;
+    this.persist();
+    this.connectNet();
+  }
+
+  /** 함께 놀기 켜기·끄기 */
+  setOnline(on: boolean): void {
+    this.save.online = on;
+    this.persist();
+    this.connectNet();
+  }
+
+  sendChat(text: string): void {
+    this.net.sendChat(text);
+  }
+
+  /** 놀이 중이고 함께 놀기가 켜져 있으면 지금 맵의 방에 (닉네임·외형·맵이 바뀌었으면 다시) 들어간다 */
+  private connectNet(): void {
+    if (this.phase !== 'play' || !this.save.online) {
+      this.joinedKey = '';
+      this.net.leave();
+      return;
+    }
+    if (!this.save.nick) {
+      this.save.nick = `냥이${100 + Math.floor(Math.random() * 900)}`;
+      this.persist();
+    }
+    const key = JSON.stringify([this.save.mapId, this.save.nick, this.save.cat]);
+    if (key === this.joinedKey) return;
+    this.joinedKey = key;
+    this.lastSent = null;
+    this.net.join(this.save.mapId, { nick: this.save.nick, look: this.save.cat });
+  }
+
+  /** 내 고양이 상태를 (바뀌었을 때만) 보내고, 다른 고양이를 그린다 */
+  private netTick(now: number, dt: number, behavior: AnimBehavior): void {
+    if (this.net.online) {
+      const s: CatState = {
+        x: round(this.ctrl.x),
+        z: round(this.ctrl.z),
+        y: round(this.ctrl.bodyY + this.floatHeight),
+        h: round(Math.atan2(Math.sin(this.ctrl.heading), Math.cos(this.ctrl.heading))), // 여러 바퀴 돈 값도 −π~π로
+        p: round(this.ctrl.bodyPitch),
+        b: behavior,
+        v: round(Math.min(10, this.ctrl.speed)),
+        g: round(Math.min(1, Math.max(0, this.brain.progress(now)))),
+      };
+      if (shouldSend(this.lastSent, s, now - this.lastSentAt)) {
+        this.net.sendState(s);
+        this.lastSent = s;
+        this.lastSentAt = now;
+      }
+    }
+    const el = this.stage.renderer.domElement;
+    this.remotes.update(now, dt, this.cam.active, { w: el.clientWidth, h: el.clientHeight });
   }
 
   get hasSave(): boolean {
@@ -230,6 +324,7 @@ export class Game {
       this.cam.yaw = this.ctrl.heading;
       this.brain.interrupt('lookAround', 3, this.time);
     }
+    this.connectNet(); // 놀이를 시작하면 함께 놀기 (켜져 있으면)
     this.emitHud();
   }
 
@@ -404,6 +499,7 @@ export class Game {
     this.rig.setFirstPerson?.(this.cam.mode === 'cat');
     this.rig.setBodyFade?.(this.cam.bodyFade);
     this.rig.apply(pose, now);
+    this.netTick(now, dt, animBehavior);
 
     this.cam.update(dt, now, { x: this.ctrl.x, y: this.ctrl.bodyY + this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
     this.stage.followSun(this.ctrl.x, this.ctrl.z);
@@ -830,4 +926,9 @@ export class Game {
     this.stage.resize(w, h);
     this.cam.setAspect(w / h);
   }
+}
+
+/** 보내는 숫자를 줄인다 (소수 셋째 자리) */
+function round(v: number): number {
+  return Math.round(v * 1000) / 1000;
 }
