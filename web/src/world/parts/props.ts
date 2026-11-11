@@ -195,9 +195,18 @@ const BENCH_MODEL_TURN = 0;
 
 function benchCollision(k: MapKit, x: number, z: number, rotY: number): void {
   const along = Math.abs(Math.sin(rotY)) > 0.5;
-  const hx = along ? 0.28 : 0.88;
-  const hz = along ? 0.88 : 0.28;
-  k.solidRect(x - hx, x + hx, z - hz, z + hz, 0.47); // 앉는 판 위 (등받이는 얇아 따로 두지 않음)
+  // 벤치 기준 좌표(등받이 −z): 앉는 판은 올라설 수 있고, 등받이는 막는다 (사용자 보고 2026-11-11: 등받이를 뚫고 지나감).
+  // 나무 벤치 모델: 앉는 판 z −0.18..0.20, 등받이 z −0.30..−0.03(뒤로 기움)·높이 0.86 / 도형 벤치: 등받이 z −0.22
+  const local = (minX: number, maxX: number, minZ: number, maxZ: number, top?: number) => {
+    const c = Math.round(Math.cos(rotY));
+    const s = Math.round(Math.sin(rotY));
+    // 직각으로만 돌려 놓는다: world x = lx·cos + lz·sin, world z = −lx·sin + lz·cos
+    const xs = [minX * c + minZ * s, maxX * c + maxZ * s];
+    const zs = [-minX * s + minZ * c, -maxX * s + maxZ * c];
+    k.solidRect(x + Math.min(...xs), x + Math.max(...xs), z + Math.min(...zs), z + Math.max(...zs), top);
+  };
+  local(-0.88, 0.88, -0.05, 0.23, 0.47); // 앉는 판 위
+  local(-0.88, 0.88, -0.3, -0.05); // 등받이 (올라설 수 없다)
   k.interests.push({ kind: 'bench', x, z: z + (along ? 0 : 0.6), r: 0.8 });
 }
 

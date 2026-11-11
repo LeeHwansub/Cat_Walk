@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { buildNeighborhood } from '../src/world/map/neighborhood';
+import { CatController } from '../src/cat/CatController';
+import { createRng } from '../src/core/rng';
+import { MapKit } from '../src/world/parts/kit';
+import { bench } from '../src/world/parts/props';
 import { isFree, pathClear } from '../src/world/collision';
 import { bakeModel, PROP_SPECS, type PropId, type PropModels } from '../src/world/propModels';
 
@@ -56,5 +60,39 @@ describe('공원 소품 모델 (Nature & Forest, 2026-11-10)', () => {
     expect(pathClear(map.collision, 4, 0, 20, 0, 0.2)).toBe(true); // 동서 산책로
     expect(pathClear(map.collision, 13.5, -9.3, 13.5, 10.5, 0.2)).toBe(true); // 남북 산책로 (남쪽 끝은 원래 화단)
     expect(isFree(map.collision, map.spawn.x, map.spawn.z, 0.2)).toBe(true);
+  });
+});
+
+describe('벤치 등받이 (사용자 보고 2026-11-11: 등받이를 뚫고 지나간다)', () => {
+  const dt = 1 / 60;
+  /** 벤치 하나만 있는 세계 */
+  function benchWorld(rotY: number) {
+    const k = new MapKit(createRng(1));
+    bench(k, 0, 0, rotY);
+    return { bounds: { minX: -5, maxX: 5, minZ: -5, maxZ: 5 }, rects: k.rects, circles: k.circles };
+  }
+
+  it('앉는 판 위에서 등받이 쪽(−z)으로 걸어도 등받이를 지나가지 못한다', () => {
+    const world = benchWorld(0);
+    const c = new CatController(world, 0.4);
+    c.placeIn(world, 0, 0.12, Math.PI);
+    c.y = c.bodyY = 0.47; // 앉는 판 위에 올라섰다
+    for (let i = 0; i < 180; i++) c.moveDirect(0, -1, dt);
+    expect(c.y).toBeCloseTo(0.47); // 판에서 떨어지지 않았다
+    expect(c.z).toBeGreaterThan(-0.05); // 등받이 앞에서 멈춘다
+  });
+
+  it('돌려 놓은 벤치(90°)도 등받이가 막는다', () => {
+    const world = benchWorld(Math.PI / 2);
+    const c = new CatController(world, 0.4);
+    c.placeIn(world, 0.12, 0, -Math.PI / 2);
+    c.y = c.bodyY = 0.47;
+    for (let i = 0; i < 180; i++) c.moveDirect(-1, 0, dt);
+    expect(c.x).toBeGreaterThan(-0.05);
+  });
+
+  it('앉는 판 앞쪽에는 여전히 올라설 수 있다', () => {
+    const world = benchWorld(0);
+    expect(world.rects.some((r) => r.top !== undefined && Math.abs(r.top - 0.47) < 0.01 && r.maxZ > 0.15)).toBe(true);
   });
 });

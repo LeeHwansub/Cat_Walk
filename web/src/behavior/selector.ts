@@ -49,10 +49,12 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
     nap: 0,
     eat: 0,
     loaf: 1,
-    sideLie: 0.15,
-    bellyUp: 0.15,
+    // 자동 생활도 포즈 메뉴의 자세만 고른다 (사용자 요청 2026-11-11): 메뉴의 "옆으로 눕기"는 꼬리 감기(tailWrap).
+    // 메뉴에서 뺀 배 보이기(bellyUp)·예전 옆으로 눕기(sideLie)는 고르지 않고, 옆으로 눕기 몫은 꼬리 감기로 옮겼다
+    sideLie: 0,
+    bellyUp: 0,
     stretch: 0,
-    tailWrap: 0.4,
+    tailWrap: 0.55,
     manSit: ctx.fold ? 0.9 : 0.12,
   };
 
@@ -70,8 +72,7 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
     w.walk *= 0.4;
     w.sit += 1.5;
     w.nap += 0.6;
-    w.sideLie += 0.8;
-    w.tailWrap += 0.6;
+    w.tailWrap += 1.4;
   }
   if (ctx.activeTime > 90) w.nap += 1.5;
 
@@ -79,8 +80,7 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
   if (ctx.nearby.some((k) => (REST_SPOTS as readonly string[]).includes(k))) {
     w.nap += 1;
     w.sit += 0.5;
-    w.sideLie += 0.8; // 햇볕 자리에서 늘어지기
-    w.bellyUp += 0.6;
+    w.tailWrap += 0.8; // 햇볕 자리에서 늘어지기
   }
   if (ctx.nearby.includes('food') && ctx.hunger < 70) w.eat = 5;
 

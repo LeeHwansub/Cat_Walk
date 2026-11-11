@@ -3,6 +3,7 @@ import { behaviorWeights, chooseBehavior, DURATION } from '../src/behavior/selec
 import { REST_BEHAVIORS, type BehaviorContext, type BehaviorId } from '../src/behavior/types';
 import { CatAnimator, type AnimInput } from '../src/cat/CatAnimator';
 import { postureBlocksMovement } from '../src/cat/posture';
+import { POSE_MENU } from '../src/ui/poseMenu';
 import { createRng } from '../src/core/rng';
 
 const POSES: BehaviorId[] = ['loaf', 'sideLie', 'bellyUp', 'stretch', 'tailWrap', 'manSit'];
@@ -24,16 +25,19 @@ function settle(behavior: AnimInput['behavior'], seconds = 4, progress = 0.5) {
 }
 
 describe('포즈 6종 — 자율 행동 선택', () => {
-  it('여러 상황에서 6가지 포즈가 모두 한 번 이상 선택된다', () => {
+  it('자동 생활은 포즈 메뉴의 자세만 고르고, 메뉴의 자세는 모두 한 번 이상 고른다 (사용자 요청 2026-11-11)', () => {
     const rng = createRng(11);
     const seen = new Set<BehaviorId>();
-    const lasts: (BehaviorId | null)[] = [null, 'sit', 'nap', 'walk', 'sideLie', 'loaf'];
+    const lasts: (BehaviorId | null)[] = [null, 'sit', 'nap', 'walk', 'tailWrap', 'loaf'];
     for (let i = 0; i < 6000; i++) {
       const last = lasts[i % lasts.length];
       const c = chooseBehavior(ctx({ last, activeTime: i % 3 === 0 ? 100 : 10, nearby: i % 2 ? ['sunspot'] : [], fold: i % 4 === 0 }), rng);
       seen.add(c.id);
     }
-    for (const id of POSES) expect(seen.has(id)).toBe(true);
+    const menu = POSE_MENU.map((p) => p.id);
+    for (const id of menu) expect(seen.has(id), id).toBe(true);
+    // 메뉴에 없는 것은 자세가 아닌 행동(서 있기·걷기·냄새 맡기·먹기)뿐: 배 보이기·예전 옆으로 눕기는 고르지 않는다
+    for (const id of seen) expect([...menu, 'idle', 'walk', 'sniff', 'eat'], id).toContain(id);
   });
 
   it('기지개는 눕거나 자고 일어난 직후에만 한다', () => {
@@ -48,14 +52,13 @@ describe('포즈 6종 — 자율 행동 선택', () => {
     expect(behaviorWeights(ctx({ fold: true })).manSit).toBeGreaterThan(behaviorWeights(ctx({ fold: false })).manSit * 3);
   });
 
-  it('옆으로 눕기·배 보이고 눕기는 햇볕 자리에서, 지쳤을 때 더 자주 한다', () => {
+  it('옆으로 눕기(꼬리 감기)는 햇볕 자리에서, 지쳤을 때 더 자주 한다', () => {
     const base = behaviorWeights(ctx());
     const sunny = behaviorWeights(ctx({ nearby: ['sunspot'] }));
     const tired = behaviorWeights(ctx({ activeTime: 100 }));
-    expect(sunny.sideLie).toBeGreaterThan(base.sideLie);
-    expect(sunny.bellyUp).toBeGreaterThan(base.bellyUp);
-    expect(tired.sideLie).toBeGreaterThan(base.sideLie);
+    expect(sunny.tailWrap).toBeGreaterThan(base.tailWrap);
     expect(tired.tailWrap).toBeGreaterThan(base.tailWrap);
+    for (const w of [base, sunny, tired]) expect(w.sideLie + w.bellyUp).toBe(0);
   });
 
   it('누워 있는 포즈는 휴식으로 취급해 그 뒤에 그루밍을 할 수 있다', () => {
