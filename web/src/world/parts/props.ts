@@ -129,7 +129,21 @@ export function weeds(k: MapKit, x: number, z: number): void {
   k.interests.push({ kind: 'grass', x, z, r: 0.5 });
 }
 
-export function tree(k: MapKit, x: number, z: number, s: number): void {
+/** 나무 높이 (s = 1일 때, m). 모델 나무는 이 높이에 맞춰 크기를 정한다 (도형 나무와 비슷하게) */
+const TREE_HEIGHT = 4.2;
+
+/** kind: 소품 모델(참나무·단풍나무·자작나무)이 불러와져 있으면 그 모델로. 충돌·관심 지점은 같다 */
+export function tree(k: MapKit, x: number, z: number, s: number, kind?: 'oak' | 'maple' | 'birch'): void {
+  const model = kind ? k.models[kind] : undefined;
+  if (kind && model) {
+    for (let i = 0; i < 16; i++) k.rng(); // 도형 나무가 쓰던 무작위 값만큼 건너뛴다 (뒤 배치가 바뀌지 않게)
+    const h = new THREE.Box3().setFromObject(model).max.y;
+    const o = k.prop(kind, x, z, x * 1.7 + z, { w: 1, h: 4, d: 1, color: '#4f7d3a' });
+    o.scale.setScalar((TREE_HEIGHT * s) / h);
+    k.circles.push({ x, z, r: 0.22 * s });
+    k.interests.push({ kind: 'grass', x, z, r: 1.2 });
+    return;
+  }
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14 * s, 0.2 * s, 2.4 * s, 8), k.mat('#6b4f3a'));
   trunk.position.set(x, 1.2 * s, z);
   trunk.castShadow = trunk.receiveShadow = true;
@@ -147,6 +161,12 @@ export function tree(k: MapKit, x: number, z: number, s: number): void {
 }
 
 export function bench(k: MapKit, x: number, z: number, rotY: number): void {
+  if (k.models.parkBench) {
+    // 소품 모델(나무 벤치)로. 충돌·관심 지점은 같다
+    k.prop('parkBench', x, z, rotY + BENCH_MODEL_TURN, { w: 1.7, h: 0.8, d: 0.5, color: '#a0744a' });
+    benchCollision(k, x, z, rotY);
+    return;
+  }
   const g = new THREE.Group();
   const wood = k.mat('#a0744a');
   const iron = k.mat('#3b3b3b', 0.5);
@@ -167,6 +187,13 @@ export function bench(k: MapKit, x: number, z: number, rotY: number): void {
   g.position.set(x, 0, z);
   g.rotation.y = rotY;
   k.group.add(g);
+  benchCollision(k, x, z, rotY);
+}
+
+/** 벤치 모델의 등받이를 도형 벤치와 같은 쪽(−z)으로 돌리는 각 */
+const BENCH_MODEL_TURN = 0;
+
+function benchCollision(k: MapKit, x: number, z: number, rotY: number): void {
   const along = Math.abs(Math.sin(rotY)) > 0.5;
   const hx = along ? 0.28 : 0.88;
   const hz = along ? 0.88 : 0.28;

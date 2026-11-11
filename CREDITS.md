@@ -106,8 +106,8 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 
 | 항목 | 내용 |
 |---|---|
-| 용도 | 골목 소품 12종: 차(해치백·경차 밴), 바닥 실외기, 화분, 가로등, 계량기 함, 배달 오토바이, 자전거, 자판기, 쓰레기통, 음료 상자, 고깔 (2026-11-09 시범, D-56) |
-| 모델명 | Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City 키트) |
+| 용도 | 골목 소품 12종: 차(해치백·경차 밴), 바닥 실외기, 화분, 가로등, 계량기 함, 배달 오토바이, 자전거, 자판기, 쓰레기통, 음료 상자, 고깔 (2026-11-09 시범, D-56). 공원 13종: 참나무·단풍나무·자작나무, 둥근 덤불, 나무 벤치, 돌 2종, 들꽃, 풀 포기, 고사리, 가로등, 새집 기둥, 쓰러진 통나무 (2026-11-10, D-58) |
+| 모델명 | Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest 키트) |
 | 제작자 | Polyfork (Lucas Martinic) (https://polyfork.dev) |
 | 원본 URL | https://polyfork.dev/kit/japanese-suburban-city-street-baa482 (모델별 페이지는 아래 표) |
 | 다운로드 URL | https://github.com/lucas-martinic/polyfork-catalog (목록의 glb 링크로 받음) |
@@ -129,6 +129,19 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | `street-bin.glb` | Street Bin | https://polyfork.dev/asset/street-bin-770173 |
 | `beverage-crate.glb` | Beverage Crate | https://polyfork.dev/asset/beverage-crate-c195c9 |
 | `traffic-cone.glb` | Traffic Cone | https://polyfork.dev/asset/traffic-cone-247748 |
+| `oak-tree.glb` | Broadleaf Oak | https://polyfork.dev/asset/broadleaf-oak-997c22 |
+| `maple-tree.glb` | Maple Tree | https://polyfork.dev/asset/maple-tree-65fa12 |
+| `birch-tree.glb` | Birch Tree | https://polyfork.dev/asset/birch-tree-181b33 |
+| `round-bush.glb` | Round Bush | https://polyfork.dev/asset/round-bush-cd2ac0 |
+| `wooden-bench.glb` | Wooden Bench | https://polyfork.dev/asset/wooden-bench-02e2c8 |
+| `medium-rock.glb` | Medium Rock | https://polyfork.dev/asset/medium-rock-e08405 |
+| `small-rock.glb` | Small Rock | https://polyfork.dev/asset/small-rock-db33a7 |
+| `wildflower.glb` | Wildflower | https://polyfork.dev/asset/wildflower-68d3a1 |
+| `grass-tuft.glb` | Grass Tuft | https://polyfork.dev/asset/grass-tuft-a40a08 |
+| `fern-plant.glb` | Fern Plant | https://polyfork.dev/asset/fern-plant-1559b8 |
+| `lantern-post.glb` | Lantern Post | https://polyfork.dev/asset/lantern-post-f47665 |
+| `birdhouse-post.glb` | Birdhouse Post | https://polyfork.dev/asset/birdhouse-post-66d6c1 |
+| `fallen-log.glb` | Fallen Log | https://polyfork.dev/asset/fallen-log-1685fb |
 
 ### 수정 내역
 - 파일 자체는 수정하지 않고 이름만 바꿈 (끝의 id를 뗌).
@@ -144,4 +157,5 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | 2026-11-07 | 문서 작성. Toon Cat FREE, Lowpoly Cat Rig + Run Animation, 울음소리 효과음 기록 |
 | 2026-11-07 | Black Cat(문의 창) 추가 |
 | 2026-11-07 | An Animated Cat(그루밍 동작) 추가 |
+| 2026-11-10 | Polyfork 공원 모델 13종 추가 (Nature & Forest 키트) |
 | 2026-11-09 | Polyfork 골목 소품 모델 12종 추가 (시범). An Animated Cat(그루밍 동작)은 쓰지 않게 됨 (D-55, 파일은 남김) |

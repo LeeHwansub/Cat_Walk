@@ -21,6 +21,20 @@ export const PROP_SPECS = {
   bin: { file: 'street-bin.glb', scale: 0.9 },
   crate: { file: 'beverage-crate.glb', scale: 1 },
   cone: { file: 'traffic-cone.glb', scale: 0.75 },
+  // 공원 (Nature & Forest 키트, 2026-11-10). 나무는 놓을 때 크기를 다시 정한다 (tree의 s)
+  oak: { file: 'oak-tree.glb', scale: 1 },
+  maple: { file: 'maple-tree.glb', scale: 1 },
+  birch: { file: 'birch-tree.glb', scale: 1 },
+  bush: { file: 'round-bush.glb', scale: 1.1 },
+  parkBench: { file: 'wooden-bench.glb', scale: 0.95 },
+  rockS: { file: 'small-rock.glb', scale: 1.4 },
+  rockM: { file: 'medium-rock.glb', scale: 0.8 },
+  wildflower: { file: 'wildflower.glb', scale: 1 },
+  grassTuft: { file: 'grass-tuft.glb', scale: 1.1 },
+  fern: { file: 'fern-plant.glb', scale: 0.6 },
+  lanternPost: { file: 'lantern-post.glb', scale: 0.9 },
+  birdhouse: { file: 'birdhouse-post.glb', scale: 0.9 },
+  fallenLog: { file: 'fallen-log.glb', scale: 0.7 },
 } as const;
 
 export type PropId = keyof typeof PROP_SPECS;

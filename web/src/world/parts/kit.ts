@@ -106,6 +106,25 @@ export class MapKit {
     return o;
   }
 
+  /**
+   * 작은 소품(들꽃·풀 포기 …)을 여러 곳에 흩뿌린다: 종류마다 InstancedMesh 하나 (그리기 호출 1회).
+   * 장식이라 모델이 없으면 놓지 않고 null. 충돌·관심 지점은 없다
+   */
+  scatter(id: PropId, items: { x: number; z: number; rotY: number; scale: number }[]): THREE.InstancedMesh | null {
+    const model = this.models[id] as THREE.Mesh | undefined;
+    if (!model || items.length === 0) return null;
+    const inst = new THREE.InstancedMesh(model.geometry, model.material, items.length);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    items.forEach((it, i) => inst.setMatrixAt(i, m.compose(new THREE.Vector3(it.x, 0, it.z), q.setFromAxisAngle(up, it.rotY), new THREE.Vector3(it.scale, it.scale, it.scale))));
+    inst.castShadow = false; // 작은 장식은 그림자를 끈다 (그리기 부담)
+    inst.receiveShadow = true;
+    inst.userData.prop = id;
+    this.group.add(inst);
+    return inst;
+  }
+
   /** tint가 있으면 차체 색만 바꾼 모델 (모델·색마다 한 번 만들어 함께 쓴다) */
   private tinted(id: PropId, tint?: string): THREE.Object3D | undefined {
     const model = this.models[id];

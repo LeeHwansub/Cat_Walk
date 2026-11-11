@@ -118,8 +118,8 @@ export const CREDITS: Credit[] = [
   },
   {
     id: 'polyfork-props',
-    role: '골목 소품 모델 12종 (차·실외기·화분·가로등·자판기·자전거 등, 2026-11-09 시범)',
-    name: 'Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City 키트)',
+    role: '골목·공원 소품 모델 25종 (차·실외기·자판기·나무·벤치·덤불·들꽃 등, 2026-11-09~10)',
+    name: 'Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest 키트)',
     author: { name: 'Polyfork (Lucas Martinic)', url: 'https://polyfork.dev' },
     sourceUrl: 'https://polyfork.dev/kit/japanese-suburban-city-street-baa482',
     downloadUrl: 'https://github.com/lucas-martinic/polyfork-catalog',
