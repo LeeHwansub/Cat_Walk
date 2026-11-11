@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cat Walk</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/ui/styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="fade"></div>
+
+    <!-- 시작 화면 -->
+    <section id="screen-start" class="screen">
+      <a class="icon-link corner" href="./info.html" target="_blank" rel="noopener noreferrer" aria-label="정보: 이용 방법·개인정보 처리방침·출처" title="정보·출처">i</a>
+      <div class="title-card">
+        <h1>Cat Walk</h1>
+        <p class="tagline">A Little World with Cats</p>
+        <p class="sub">고양이와 함께 작은 동네를 거닐며,<br />자유롭게 살아가는 고양이의 하루를 경험해 보세요.</p>
+        <div class="menu">
+          <button id="btn-new" class="primary">시작하기</button>
+          <button id="btn-continue">이어하기</button>
+          <button id="btn-settings-start">설정</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 고양이 생성 화면 -->
+    <section id="screen-create" class="screen hidden">
+      <div class="panel create-panel">
+        <h2>나의 고양이</h2>
+        <div class="field">
+          <span class="label">프리셋</span>
+          <div id="opt-presets" class="chips"></div>
+        </div>
+        <div class="field">
+          <span class="label">털 색상</span>
+          <div id="opt-fur" class="swatches"></div>
+        </div>
+        <div class="field">
+          <span class="label">무늬</span>
+          <div id="opt-pattern" class="chips"></div>
+        </div>
+        <div class="field">
+          <span class="label">눈 색상</span>
+          <div id="opt-eye" class="swatches"></div>
+        </div>
+        <div class="field">
+          <span class="label">귀</span>
+          <div id="opt-ear" class="chips"></div>
+        </div>
+        <div class="field">
+          <span class="label">성장 단계</span>
+          <div id="opt-stage" class="chips"></div>
+          <div class="size-row">
+            <input type="range" id="opt-size" min="85" max="120" step="1" value="100" aria-label="크기" />
+            <span id="opt-size-label">100%</span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">체형</span>
+          <div class="size-row">
+            <span class="end-label">날씬</span>
+            <input type="range" id="opt-build" min="80" max="130" step="1" value="100" aria-label="체형 (날씬 ↔ 통통)" />
+            <span class="end-label">통통</span>
+            <span id="opt-build-label">100%</span>
+          </div>
+        </div>
+        <div class="row">
+          <button id="btn-create-back">뒤로</button>
+          <button id="btn-create-done" class="primary">생성 완료</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 플레이 HUD -->
+    <section id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hunger" title="배고픔">
+          <span class="hunger-icon">배고픔</span>
+          <div class="bar"><div id="hunger-fill"></div></div>
+          <span id="hunger-label"></span>
+        </div>
+        <div class="hud-actions">
+          <a class="icon-link" href="./info.html" target="_blank" rel="noopener noreferrer" aria-label="정보: 이용 방법·개인정보 처리방침·출처" title="정보·출처">i</a>
+          <button id="btn-settings" class="icon-btn" aria-label="설정">⚙</button>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <button id="btn-mode" class="pill"></button>
+        <button id="btn-camera" class="pill"></button>
+        <button id="btn-feed" class="pill">먹이 주기 <kbd>F</kbd></button>
+        <button id="btn-pose" class="pill">포즈 <kbd>P</kbd></button>
+      </div>
+      <p class="hint">WASD·방향키 이동 · Shift 달리기 · Space 점프 · P 포즈 · 드래그 회전 · 휠 줌 · 고양이 클릭 쓰다듬기</p>
+    </section>
+
+    <!-- 설정 -->
+    <div id="settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="panel">
+        <h2 id="settings-title">설정</h2>
+        <label class="check"><input type="checkbox" id="set-mute-all" /> 전체 음소거</label>
+        <label class="check"><input type="checkbox" id="set-mute-cat" /> 고양이 울음소리 끄기</label>
+        <label class="check"><input type="checkbox" id="set-shake" /> 고양이 시점 흔들림 줄이기</label>
+        <label class="select">털 표현
+          <select id="set-fur">
+            <option value="auto">자동 (기기에 맞춤)</option>
+            <option value="high">풍성하게</option>
+            <option value="medium">보통</option>
+            <option value="low">가볍게 (모바일용)</option>
+          </select>
+        </label>
+        <div class="row">
+          <button id="btn-reset" class="danger">저장 초기화</button>
+          <button id="btn-settings-close" class="primary">닫기</button>
+        </div>
+        <!-- 효과음 출처 표기 (CC BY 4.0, D-21) -->
+        <p class="credits">
+          효과음: 【 -라일락- 】
+          <a href="https://pgtd.tistory.com/127" target="_blank" rel="noopener noreferrer">pgtd.tistory.com/127</a>,
+          <a href="https://creativecommons.org/licenses/by/4.0/deed.ko" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
+          · 재생 시 음량과 앞부분 무음을 조정함
+          <br />고양이 모델: Toon Cat FREE — Omabuarts Studio
+          (<a href="https://sketchfab.com/3d-models/toon-cat-free-b2bd1ee7858444bda366110a2d960386" target="_blank" rel="noopener noreferrer">Sketchfab</a>,
+          <a href="https://creativecommons.org/licenses/by/4.0/deed.ko" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>) · 뼈를 코드로 움직이고 무늬를 다시 칠함
+          <br />달리기 동작: Lowpoly Cat Rig + Run Animation — Daily Lowpoly
+          (<a href="https://sketchfab.com/3d-models/lowpoly-cat-rig-run-animation-c36df576c9ae4ed28e89069b1a2f427a" target="_blank" rel="noopener noreferrer">Sketchfab</a>)
+          · 뼈대·동작만 변환해 옮겨 씀
+          <br /><a class="info-more" href="./info.html" target="_blank" rel="noopener noreferrer">이용 방법 · 개인정보 처리방침 · 출처 전체 보기 →</a>
+        </p>
+      </div>
+    </div>
+
+    <div id="error" class="hidden"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
