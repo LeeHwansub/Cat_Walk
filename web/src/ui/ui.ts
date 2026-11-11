@@ -12,10 +12,22 @@ export function bindUi(game: Game): void {
   const start = $('screen-start');
   const create = $('screen-create');
   const hud = $('hud');
-  // 모바일: 왼쪽 아래 조이스틱 (터치 기기에서만), 안내 문구도 터치 조작으로
-  if (isTouchDevice()) {
+  // 모바일: 왼쪽 아래 조이스틱 + 오른쪽 아래 점프 버튼 (J-2).
+  // 터치 기기로 보이면 바로, 아니어도 손가락으로 화면을 처음 누르는 순간 만든다 (감지가 빗나가도 움직일 수 있게, 2026-11-11)
+  let touchControls = false;
+  // 작은 화면 배치 (터치 기기이거나 폭 640px 이하): 아래 버튼 한 줄·짧은 이름, 키 표시·안내 문구 숨김 (styles.css body.compact)
+  const narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 640px)') : null;
+  let lastHud: HudState | null = null;
+  const updateCompact = () => {
+    document.body.classList.toggle('compact', touchControls || !!narrow?.matches);
+    if (lastHud) game.onHud(lastHud);
+  };
+  narrow?.addEventListener('change', updateCompact);
+  const addTouchControls = () => {
+    if (touchControls) return;
+    touchControls = true;
+    updateCompact();
     new VirtualJoystick(hud, (s) => game.setStick(s));
-    // 오른쪽 아래 점프 버튼 (J-2)
     const jump = document.createElement('button');
     jump.className = 'jump-btn';
     jump.type = 'button';
@@ -25,8 +37,16 @@ export function bindUi(game: Game): void {
       game.pressJump();
     });
     hud.appendChild(jump);
-    const hint = hud.querySelector('.hint');
-    if (hint) hint.textContent = '조이스틱 이동 (끝까지 밀면 달리기) · 점프 버튼 · 화면 드래그 회전 · 고양이 탭 쓰다듬기';
+  };
+  updateCompact();
+  if (isTouchDevice()) addTouchControls();
+  else {
+    const onFirstTouch = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return;
+      window.removeEventListener('pointerdown', onFirstTouch);
+      addTouchControls();
+    };
+    window.addEventListener('pointerdown', onFirstTouch);
   }
   const settings = $('settings');
   game.setFadeElement($('fade'));
@@ -188,12 +208,16 @@ export function bindUi(game: Game): void {
   });
 
   game.onHud = (s: HudState) => {
+    lastHud = s;
+    const compact = document.body.classList.contains('compact');
     $('hunger-fill').style.width = `${Math.round(s.hunger)}%`;
     $('hunger-label').textContent = hungerLabel(s.hunger);
-    btnMode.textContent = s.mode === 'auto' ? '자동 생활' : s.manualLocked ? '직접 조작 (고정)' : '직접 조작';
+    // 작은 화면에서는 아래 버튼이 한 줄에 들어가게 짧은 이름 (2026-11-11)
+    if (compact) btnMode.textContent = s.mode === 'auto' ? '자동' : s.manualLocked ? '직접 고정' : '직접';
+    else btnMode.textContent = s.mode === 'auto' ? '자동 생활' : s.manualLocked ? '직접 조작 (고정)' : '직접 조작';
     btnMode.classList.toggle('active', s.mode === 'manual');
     btnMode.title = s.mode === 'auto' ? '누르면 직접 조작 모드로 고정' : '누르면 자동 생활로 돌아감';
-    btnCam.innerHTML = `${s.camera === 'follow' ? '고양이 시점' : '3인칭 시점'} <kbd>C</kbd>`;
+    btnCam.innerHTML = compact ? '시점' : `${s.camera === 'follow' ? '고양이 시점' : '3인칭 시점'} <kbd>C</kbd>`;
   };
 
   // ---------------- 설정
