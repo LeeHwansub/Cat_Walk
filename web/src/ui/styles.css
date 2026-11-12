@@ -98,6 +98,121 @@ kbd {
   padding: 0 0 8vh 7vw;
 }
 
+/* ---- 인트로 (2026-11-12): 시작 화면 배경 영상. 처음에는 영상과 "화면을 눌러 시작"만, 누르면 영상 위에 메뉴 */
+#screen-start {
+  background: #8fb8de;
+}
+
+/* 영상 뒤를 채우는 흐린 첫 장면 (세로 화면에서 영상 위아래 빈 곳) */
+.intro-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(22px) brightness(0.92);
+  transform: scale(1.12);
+}
+
+/* 가로로 넓은 화면은 꽉 채우고, 세로·좁은 화면은 로고가 잘리지 않게 전체를 보여 준다 */
+.intro-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-aspect-ratio: 4/3) {
+  .intro-video {
+    object-fit: contain;
+  }
+}
+
+.intro-backdrop,
+.intro-video,
+#screen-start::after {
+  pointer-events: none;
+}
+
+/* 메뉴 글씨가 밝은 영상 위에서도 읽히게 아래쪽을 어둡게 */
+#screen-start::after {
+  content: '';
+  position: absolute;
+  inset: 45% 0 0;
+  background: linear-gradient(to bottom, rgba(20, 14, 10, 0), rgba(20, 14, 10, 0.5));
+  transition: opacity 0.4s;
+}
+
+#screen-start .title-card {
+  position: relative;
+  z-index: 1;
+  animation: intro-rise 0.4s ease-out;
+}
+
+/* 인트로 상태: 화면 어디를 눌러도 들어간다 */
+#screen-start.intro {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#screen-start.intro .title-card {
+  display: none;
+}
+
+#screen-start.intro::after {
+  opacity: 0.5;
+}
+
+#screen-start:not(.intro) .intro-tap {
+  display: none;
+}
+
+.intro-tap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(8vh, calc(env(safe-area-inset-bottom) + 24px));
+  z-index: 1;
+  margin: 0;
+  text-align: center;
+  font-size: clamp(16px, 2.2vw, 22px);
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  animation: intro-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes intro-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes intro-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-tap,
+  #screen-start .title-card {
+    animation: none;
+  }
+}
+
+/* 영상에 로고가 있으므로 큰 제목·영문 부제는 글자로만 남긴다 (화면 읽기용) */
+#screen-start .title-card h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+#screen-start .title-card .tagline {
+  display: none;
+}
+
 .title-card h1 {
   font-size: clamp(44px, 8vw, 84px);
   letter-spacing: -0.02em;
