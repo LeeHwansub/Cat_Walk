@@ -4,6 +4,8 @@ import { BUILD_RANGE, clampBuild, clampSize, EAR_TYPES, EYE_COLORS, FUR_COLORS, 
 import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
 import { createPoseMenu } from './poseMenuView';
+import { createMapMenu } from './mapMenuView';
+import { MAPS } from '../world/maps';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -151,11 +153,26 @@ export function bindUi(game: Game): void {
   $('btn-feed').onclick = () => game.giveFood();
   // 포즈 메뉴: 고양이 둘레에 자세 실루엣을 펼친다 (P 키도)
   const poseMenu = createPoseMenu(hud, game);
-  $('btn-pose').onclick = (e) => {
-    e.stopPropagation();
+  // 지도 메뉴: 맵 목록에서 골라 옮긴다 (M 키도, D-58 3단계). 두 메뉴는 한 번에 하나만 연다
+  const mapMenu = createMapMenu(hud, game, MAPS);
+  const togglePose = () => {
+    mapMenu.close();
     poseMenu.toggle();
   };
-  game.onPoseKey = () => poseMenu.toggle();
+  const toggleMap = () => {
+    poseMenu.close();
+    mapMenu.toggle();
+  };
+  $('btn-pose').onclick = (e) => {
+    e.stopPropagation();
+    togglePose();
+  };
+  $('btn-map').onclick = (e) => {
+    e.stopPropagation();
+    toggleMap();
+  };
+  game.onPoseKey = togglePose;
+  game.onMapKey = toggleMap;
   $('btn-settings').onclick = () => openSettings();
 
   // ---------------- 함께 놀기 (멀티플레이, D-59): 접속 상태·인원, 채팅
@@ -258,6 +275,7 @@ export function bindUi(game: Game): void {
     if (e.code !== 'Escape') return;
     if (document.activeElement === chatInput) return closeChat();
     if (poseMenu.isOpen()) return poseMenu.close();
+    if (mapMenu.isOpen()) return mapMenu.close();
     if (settings.classList.contains('hidden')) {
       if (game.phase === 'play') openSettings();
     } else show(settings, false);

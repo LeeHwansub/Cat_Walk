@@ -57,6 +57,8 @@ export class Game {
   onHud: (s: HudState) => void = () => {};
   /** P 키: 포즈 메뉴 열고 닫기 (UI가 정한다) */
   onPoseKey: () => void = () => {};
+  /** M 키: 지도 메뉴 열고 닫기 (UI가 정한다, D-58) */
+  onMapKey: () => void = () => {};
   /** 멀티플레이 (D-59): 채팅 받음, 접속 상태·방 인원 */
   onChat: (nick: string, text: string, mine: boolean) => void = () => {};
   onNet: (status: NetStatus, count: number) => void = () => {};
@@ -514,6 +516,7 @@ export class Game {
       if (k === 'KeyF') this.giveFood();
       if (k === 'Space') this.tryJump();
       if (k === 'KeyP') this.onPoseKey();
+      if (k === 'KeyM') this.onMapKey();
     }
   }
 

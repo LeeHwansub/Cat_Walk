@@ -580,6 +580,69 @@ kbd {
   }
 }
 
+/* ---------------- 지도 메뉴 (D-58 3단계): 맵 목록에서 골라 옮긴다 */
+.map-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(30, 24, 20, 0.25);
+  /* #hud는 클릭을 통과시키므로 메뉴는 다시 받는다 (포즈 메뉴와 같은 이유) */
+  pointer-events: auto;
+}
+
+.map-panel {
+  width: min(340px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.map-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  border-radius: 10px;
+}
+
+.map-item:disabled {
+  cursor: default;
+  opacity: 1;
+  background: rgba(217, 130, 74, 0.12);
+  outline: 2px solid var(--accent);
+}
+
+.map-item b {
+  font-size: 15px;
+}
+
+.map-here {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 1px 7px;
+  vertical-align: 1px;
+}
+
+.map-blurb {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
 /* ---- 함께 놀기 (멀티플레이, D-59) */
 .text-input {
   font: inherit;
@@ -793,8 +856,10 @@ body.compact .jump-btn {
   bottom: calc(max(12px, env(safe-area-inset-bottom)) + 80px);
 }
 
-/* 포즈 메뉴가 열려 있는 동안에는 조이스틱·점프를 숨긴다 (자세 칸과 겹치지 않게) */
+/* 포즈·지도 메뉴가 열려 있는 동안에는 조이스틱·점프를 숨긴다 (메뉴와 겹치지 않게) */
 #hud:has(.pose-menu:not(.hidden)) .joystick,
-#hud:has(.pose-menu:not(.hidden)) .jump-btn {
+#hud:has(.pose-menu:not(.hidden)) .jump-btn,
+#hud:has(.map-menu:not(.hidden)) .joystick,
+#hud:has(.map-menu:not(.hidden)) .jump-btn {
   visibility: hidden;
 }
