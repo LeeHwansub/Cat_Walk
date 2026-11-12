@@ -144,4 +144,4 @@ export const OWN_ASSETS: string[] = [
 ];
 
 /** 정보 페이지 시행일 */
-export const INFO_EFFECTIVE_DATE = '2026-11-07';
+export const INFO_EFFECTIVE_DATE = '2026-11-12';
