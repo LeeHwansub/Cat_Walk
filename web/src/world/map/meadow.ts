@@ -338,8 +338,8 @@ function flowerDots(k: MapKit, free: (x: number, z: number) => boolean, rng: () 
   k.unmerged.push(heads, leaves);
 }
 
-/** 둘레 바깥 숲 (풍경용, 갈 수 없음): 소나무·활엽수를 두세 겹으로. 종류마다 한 번에 그린다 */
-function forestRing(k: MapKit, b: Rect): void {
+/** 둘레 바깥 숲 (풍경용, 갈 수 없음): 소나무·활엽수를 두세 겹으로. 종류마다 한 번에 그린다. 농장 맵도 함께 쓴다 */
+export function forestRing(k: MapKit, b: Rect): void {
   const rng = createRng(4242);
   const pines: Item[] = [];
   const rounds: Item[] = [];

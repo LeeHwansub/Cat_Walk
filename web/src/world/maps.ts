@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildFarm } from './map/farm';
 import { buildMeadow } from './map/meadow';
 import { buildNeighborhood, type Neighborhood } from './map/neighborhood';
 import type { PropModels } from './propModels';
@@ -21,6 +22,7 @@ export const DEFAULT_MAP_ID = 'neighborhood';
 export const MAPS: readonly MapDef[] = [
   { id: DEFAULT_MAP_ID, name: '골목과 공원', blurb: '주택가 골목과 연못이 있는 작은 공원', build: buildNeighborhood },
   { id: 'meadow', name: '들판', blurb: '꽃이 핀 넓은 풀밭과 부들이 자라는 연못', build: buildMeadow },
+  { id: 'farm', name: '농장', blurb: '헛간과 건초 더미가 있는 마당, 밭과 과수원', build: buildFarm },
 ];
 
 /** id에 맞는 맵. 없으면(지워진 맵, 손상된 저장) 기본 맵 */
