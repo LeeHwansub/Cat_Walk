@@ -106,8 +106,8 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 
 | 항목 | 내용 |
 |---|---|
-| 용도 | 골목 소품 12종: 차(해치백·경차 밴), 바닥 실외기, 화분, 가로등, 계량기 함, 배달 오토바이, 자전거, 자판기, 쓰레기통, 음료 상자, 고깔 (2026-11-09 시범, D-56). 공원 13종: 참나무·단풍나무·자작나무, 둥근 덤불, 나무 벤치, 돌 2종, 들꽃, 풀 포기, 고사리, 가로등, 새집 기둥, 쓰러진 통나무 (2026-11-10, D-58) |
-| 모델명 | Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest 키트) |
+| 용도 | 골목 소품 12종: 차(해치백·경차 밴), 바닥 실외기, 화분, 가로등, 계량기 함, 배달 오토바이, 자전거, 자판기, 쓰레기통, 음료 상자, 고깔 (2026-11-09 시범, D-56). 공원 13종: 참나무·단풍나무·자작나무, 둥근 덤불, 나무 벤치, 돌 2종, 들꽃, 풀 포기, 고사리, 가로등, 새집 기둥, 쓰러진 통나무 (2026-11-10, D-58). 들판 19종: 소나무 2종·둥근 활엽수·그루터기·큰 바위, 나무 울타리·울타리 문·디딤대, 길 안내판·디딤돌·흙길 조각·피크닉 테이블, 부들·연잎, 꽃덤불 2종, 데이지·민들레·토끼풀 (2026-11-12, D-58 4단계. 들판의 풀 포기는 공원 모델을 함께 씀) |
+| 모델명 | Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest·Countryside Railway·Insect World 키트) |
 | 제작자 | Polyfork (Lucas Martinic) (https://polyfork.dev) |
 | 원본 URL | https://polyfork.dev/kit/japanese-suburban-city-street-baa482 (모델별 페이지는 아래 표) |
 | 다운로드 URL | https://github.com/lucas-martinic/polyfork-catalog (목록의 glb 링크로 받음) |
@@ -142,10 +142,29 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | `lantern-post.glb` | Lantern Post | https://polyfork.dev/asset/lantern-post-f47665 |
 | `birdhouse-post.glb` | Birdhouse Post | https://polyfork.dev/asset/birdhouse-post-66d6c1 |
 | `fallen-log.glb` | Fallen Log | https://polyfork.dev/asset/fallen-log-1685fb |
+| `tall-pine.glb` | Tall Pine Tree | https://polyfork.dev/asset/tall-pine-tree-ab4108 |
+| `young-pine.glb` | Young Pine | https://polyfork.dev/asset/young-pine-0d7695 |
+| `round-tree.glb` | Lineside Tree | https://polyfork.dev/asset/lineside-tree-97e02a |
+| `tree-stump.glb` | Tree Stump | https://polyfork.dev/asset/tree-stump-ec3f48 |
+| `large-boulder.glb` | Large Boulder | https://polyfork.dev/asset/large-boulder-a29b99 |
+| `wood-fence.glb` | Wooden Fence Section | https://polyfork.dev/asset/wooden-fence-section-5f04b7 |
+| `wood-fence-gate.glb` | Wooden Fence Gate | https://polyfork.dev/asset/wooden-fence-gate-a8735f |
+| `fence-stile.glb` | Lineside Stile | https://polyfork.dev/asset/lineside-stile-632da4 |
+| `trail-signpost.glb` | Trail Signpost | https://polyfork.dev/asset/trail-signpost-bd29a7 |
+| `slab-stone.glb` | Slab Path Stone | https://polyfork.dev/asset/slab-path-stone-e526f7 |
+| `dirt-trail.glb` | Dirt Trail Strip | https://polyfork.dev/asset/dirt-trail-strip-1be7a6 |
+| `picnic-table.glb` | Campsite Picnic Table | https://polyfork.dev/asset/campsite-picnic-table-361d51 |
+| `cattail.glb` | Cattail Reed | https://polyfork.dev/asset/cattail-reed-6abbb3 |
+| `lily-pad.glb` | Lily Pad | https://polyfork.dev/asset/lily-pad-86edbb |
+| `buddleia.glb` | Lineside Buddleia | https://polyfork.dev/asset/lineside-buddleia-36cd9a |
+| `cow-parsley.glb` | Lineside Cow Parsley | https://polyfork.dev/asset/lineside-cow-parsley-4a8bfd |
+| `daisy.glb` | Common Daisy | https://polyfork.dev/asset/common-daisy-6b2004 |
+| `dandelion.glb` | Dandelion | https://polyfork.dev/asset/dandelion-ff19ee |
+| `clover.glb` | White Clover Plant | https://polyfork.dev/asset/white-clover-plant-6ed185 |
 
 ### 수정 내역
 - 파일 자체는 수정하지 않고 이름만 바꿈 (끝의 id를 뗌).
-- 게임에서 불러올 때 메시를 하나로 합치고(정점 색 유지), 바닥 기준점·축척을 맞춤.
+- 게임에서 불러올 때 메시를 하나로 합치고(정점 색 유지), 바닥 기준점·축척을 맞춤. Insect World 키트(데이지·민들레·토끼풀)는 곤충 눈높이로 크게 만들어져 있어 0.016~0.045배로 줄임.
 
 ## 7. 직접 만든 것 (외부 출처 없음)
 - 골골송 녹음 2개: 사용자가 직접 녹음 (`web/public/assets/sounds/purr-*.m4a`).
@@ -157,5 +176,6 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | 2026-11-07 | 문서 작성. Toon Cat FREE, Lowpoly Cat Rig + Run Animation, 울음소리 효과음 기록 |
 | 2026-11-07 | Black Cat(문의 창) 추가 |
 | 2026-11-07 | An Animated Cat(그루밍 동작) 추가 |
+| 2026-11-12 | Polyfork 들판 모델 19종 추가 (Nature & Forest·Countryside Railway·Insect World 키트) |
 | 2026-11-10 | Polyfork 공원 모델 13종 추가 (Nature & Forest 키트) |
 | 2026-11-09 | Polyfork 골목 소품 모델 12종 추가 (시범). An Animated Cat(그루밍 동작)은 쓰지 않게 됨 (D-55, 파일은 남김) |

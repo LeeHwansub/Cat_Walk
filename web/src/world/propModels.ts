@@ -35,6 +35,28 @@ export const PROP_SPECS = {
   lanternPost: { file: 'lantern-post.glb', scale: 0.9 },
   birdhouse: { file: 'birdhouse-post.glb', scale: 0.9 },
   fallenLog: { file: 'fallen-log.glb', scale: 0.7 },
+  // 들판 (Nature & Forest·Countryside Railway·Insect World 키트, 2026-11-12, D-58 4단계). 나무는 놓을 때 높이를 다시 정한다
+  tallPine: { file: 'tall-pine.glb', scale: 1 },
+  youngPine: { file: 'young-pine.glb', scale: 1 },
+  roundTree: { file: 'round-tree.glb', scale: 1 },
+  stump: { file: 'tree-stump.glb', scale: 1 }, // 높이 0.48m (올라설 수 있음)
+  boulder: { file: 'large-boulder.glb', scale: 0.9 }, // 2.2m × 0.66m → 2.0m × 0.6m
+  fence: { file: 'wood-fence.glb', scale: 0.8 }, // 높이 1.1m → 0.88m, 폭 2m → 1.6m
+  fenceGate: { file: 'wood-fence-gate.glb', scale: 0.8 },
+  stile: { file: 'fence-stile.glb', scale: 0.8 },
+  signpost: { file: 'trail-signpost.glb', scale: 0.8 },
+  slabStone: { file: 'slab-stone.glb', scale: 0.7 },
+  dirtTrail: { file: 'dirt-trail.glb', scale: 1 }, // 1.4m × 3m 흙길 조각
+  picnicTable: { file: 'picnic-table.glb', scale: 1 }, // 2m × 1.6m, 윗면 0.75m
+  cattail: { file: 'cattail.glb', scale: 0.7 },
+  lilyPad: { file: 'lily-pad.glb', scale: 0.9 },
+  buddleia: { file: 'buddleia.glb', scale: 0.45 }, // 2.4m → 1.1m 꽃덤불
+  cowParsley: { file: 'cow-parsley.glb', scale: 0.6 },
+  // Insect World 키트는 곤충 눈높이로 크게 만들어져 있어 실제 크기로 줄인다.
+  // 들풀(Meadow Grass Plant)은 밑에 화분 흙덩이가 붙어 있어 빼고 공원 풀 포기(grassTuft)를 쓴다 (사용자 선택 2026-11-12)
+  daisy: { file: 'daisy.glb', scale: 0.045 }, // 8m → 0.36m
+  dandelion: { file: 'dandelion.glb', scale: 0.016 }, // 24m → 0.39m
+  clover: { file: 'clover.glb', scale: 0.02 }, // 9m → 0.18m
 } as const;
 
 export type PropId = keyof typeof PROP_SPECS;
