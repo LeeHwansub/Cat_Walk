@@ -118,8 +118,8 @@ export const CREDITS: Credit[] = [
   },
   {
     id: 'polyfork-props',
-    role: '골목·공원 소품 모델 25종 (차·실외기·자판기·나무·벤치·덤불·들꽃 등, 2026-11-09~10)',
-    name: 'Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest 키트)',
+    role: '골목·공원·들판 소품 모델 44종 (차·실외기·자판기·나무·벤치·울타리·피크닉 테이블·꽃·풀 등, 2026-11-09~12)',
+    name: 'Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest·Countryside Railway·Insect World 키트)',
     author: { name: 'Polyfork (Lucas Martinic)', url: 'https://polyfork.dev' },
     sourceUrl: 'https://polyfork.dev/kit/japanese-suburban-city-street-baa482',
     downloadUrl: 'https://github.com/lucas-martinic/polyfork-catalog',
@@ -131,7 +131,7 @@ export const CREDITS: Credit[] = [
     files: ['web/public/assets/models/props/*.glb'],
     changes: [
       '파일 자체는 수정하지 않고 이름만 바꿈 (예: kei-van-211ed5.glb → kei-van.glb)',
-      '게임에서 불러올 때 메시를 하나로 합치고, 바닥 기준점·축척을 맞춤 (화분 0.55배, 가로등 0.9배 등)',
+      '게임에서 불러올 때 메시를 하나로 합치고, 바닥 기준점·축척을 맞춤 (화분 0.55배, 가로등 0.9배, 곤충 눈높이로 만든 Insect World 꽃·풀은 0.016~0.045배 등)',
     ],
     commercial: 'unconfirmed',
   },
