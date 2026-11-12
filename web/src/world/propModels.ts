@@ -57,6 +57,33 @@ export const PROP_SPECS = {
   daisy: { file: 'daisy.glb', scale: 0.045 }, // 8m → 0.36m
   dandelion: { file: 'dandelion.glb', scale: 0.016 }, // 24m → 0.39m
   clover: { file: 'clover.glb', scale: 0.02 }, // 9m → 0.18m
+  // 농장 (Cozy Farm 키트, 2026-11-12, D-58 5단계). 실제 크기로 만들어져 있다
+  redBarn: { file: 'red-barn.glb', scale: 1.1 }, // 6.6m × 7.7m, 높이 8m
+  farmhouse: { file: 'farmhouse.glb', scale: 1.1 }, // 6.6m × 5.5m
+  chickenCoop: { file: 'chicken-coop.glb', scale: 0.9 }, // 2.7m
+  toolShed: { file: 'tool-shed.glb', scale: 1 },
+  grainSilo: { file: 'grain-silo.glb', scale: 1 }, // 지름 3m, 높이 7.3m
+  windpump: { file: 'windpump.glb', scale: 1 }, // 높이 7.9m
+  appleTree: { file: 'apple-tree.glb', scale: 1.3 }, // 3.4m → 4.4m
+  plumTree: { file: 'plum-tree.glb', scale: 1.3 },
+  berryBush: { file: 'berry-bush.glb', scale: 1 },
+  hayBale: { file: 'hay-bale.glb', scale: 1.3 }, // 1.22m × 0.6m, 윗면 0.59m (쌓으면 1.18m)
+  wheatCrop: { file: 'wheat-crop.glb', scale: 1.3 },
+  cornCrop: { file: 'corn-crop.glb', scale: 1 },
+  pumpkinCrop: { file: 'pumpkin-crop.glb', scale: 1 },
+  sunflower: { file: 'sunflower.glb', scale: 1 },
+  strawberryCrop: { file: 'strawberry-crop.glb', scale: 1 },
+  tomatoCrop: { file: 'tomato-crop.glb', scale: 1 },
+  tilledSoil: { file: 'tilled-soil.glb', scale: 1 },
+  scarecrow: { file: 'scarecrow.glb', scale: 1 },
+  wheelbarrow: { file: 'wheelbarrow.glb', scale: 1 },
+  waterTrough: { file: 'water-trough.glb', scale: 1 }, // 테두리 윗면 0.42m
+  stoneWell: { file: 'stone-well.glb', scale: 1 },
+  farmGate: { file: 'farm-gate.glb', scale: 0.9 },
+  farmFence: { file: 'farm-fence.glb', scale: 0.9 }, // 1.8m 조각, 윗면 0.78m
+  feedSack: { file: 'feed-sack.glb', scale: 1 },
+  beehive: { file: 'beehive.glb', scale: 1 },
+  tractor: { file: 'tractor.glb', scale: 1 }, // 앞(+z) 보닛 1.36m는 못 오르고, 뒷바퀴 덮개 1.1m는 오른다
 } as const;
 
 export type PropId = keyof typeof PROP_SPECS;

@@ -118,8 +118,8 @@ export const CREDITS: Credit[] = [
   },
   {
     id: 'polyfork-props',
-    role: '골목·공원·들판 소품 모델 44종 (차·실외기·자판기·나무·벤치·울타리·피크닉 테이블·꽃·풀 등, 2026-11-09~12)',
-    name: 'Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest·Countryside Railway·Insect World 키트)',
+    role: '골목·공원·들판·농장 소품 모델 70종 (차·실외기·자판기·나무·벤치·울타리·피크닉 테이블·꽃·풀·헛간·작물 등, 2026-11-09~12)',
+    name: 'Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest·Countryside Railway·Insect World·Cozy Farm 키트)',
     author: { name: 'Polyfork (Lucas Martinic)', url: 'https://polyfork.dev' },
     sourceUrl: 'https://polyfork.dev/kit/japanese-suburban-city-street-baa482',
     downloadUrl: 'https://github.com/lucas-martinic/polyfork-catalog',

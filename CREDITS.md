@@ -106,8 +106,8 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 
 | 항목 | 내용 |
 |---|---|
-| 용도 | 골목 소품 12종: 차(해치백·경차 밴), 바닥 실외기, 화분, 가로등, 계량기 함, 배달 오토바이, 자전거, 자판기, 쓰레기통, 음료 상자, 고깔 (2026-11-09 시범, D-56). 공원 13종: 참나무·단풍나무·자작나무, 둥근 덤불, 나무 벤치, 돌 2종, 들꽃, 풀 포기, 고사리, 가로등, 새집 기둥, 쓰러진 통나무 (2026-11-10, D-58). 들판 19종: 소나무 2종·둥근 활엽수·그루터기·큰 바위, 나무 울타리·울타리 문·디딤대, 길 안내판·디딤돌·흙길 조각·피크닉 테이블, 부들·연잎, 꽃덤불 2종, 데이지·민들레·토끼풀 (2026-11-12, D-58 4단계. 들판의 풀 포기는 공원 모델을 함께 씀) |
-| 모델명 | Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest·Countryside Railway·Insect World 키트) |
+| 용도 | 골목 소품 12종: 차(해치백·경차 밴), 바닥 실외기, 화분, 가로등, 계량기 함, 배달 오토바이, 자전거, 자판기, 쓰레기통, 음료 상자, 고깔 (2026-11-09 시범, D-56). 공원 13종: 참나무·단풍나무·자작나무, 둥근 덤불, 나무 벤치, 돌 2종, 들꽃, 풀 포기, 고사리, 가로등, 새집 기둥, 쓰러진 통나무 (2026-11-10, D-58). 들판 19종: 소나무 2종·둥근 활엽수·그루터기·큰 바위, 나무 울타리·울타리 문·디딤대, 길 안내판·디딤돌·흙길 조각·피크닉 테이블, 부들·연잎, 꽃덤불 2종, 데이지·민들레·토끼풀 (2026-11-12, D-58 4단계. 들판의 풀 포기는 공원 모델을 함께 씀). 농장 26종: 빨간 헛간·농가 주택·닭장·공구 창고·곡물 저장탑·풍차 펌프, 사과나무·자두나무·열매 덤불, 건초 더미·밀·옥수수·호박·해바라기·딸기·토마토·갈아 놓은 밭, 허수아비·외바퀴 수레·물통·돌우물·농장 문·나무 울타리·사료 자루·벌통·소형 트랙터 (2026-11-12, D-58 5단계) |
+| 모델명 | Polyfork 무료 로우폴리 모델 (Little Tokyo·New York City·Nature & Forest·Countryside Railway·Insect World·Cozy Farm 키트) |
 | 제작자 | Polyfork (Lucas Martinic) (https://polyfork.dev) |
 | 원본 URL | https://polyfork.dev/kit/japanese-suburban-city-street-baa482 (모델별 페이지는 아래 표) |
 | 다운로드 URL | https://github.com/lucas-martinic/polyfork-catalog (목록의 glb 링크로 받음) |
@@ -161,6 +161,32 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | `daisy.glb` | Common Daisy | https://polyfork.dev/asset/common-daisy-6b2004 |
 | `dandelion.glb` | Dandelion | https://polyfork.dev/asset/dandelion-ff19ee |
 | `clover.glb` | White Clover Plant | https://polyfork.dev/asset/white-clover-plant-6ed185 |
+| `red-barn.glb` | Red Barn | https://polyfork.dev/asset/red-barn-d41683 |
+| `farmhouse.glb` | Gabled Farmhouse | https://polyfork.dev/asset/gabled-farmhouse-c7534f |
+| `chicken-coop.glb` | Chicken Coop | https://polyfork.dev/asset/chicken-coop-371f97 |
+| `tool-shed.glb` | Tool Shed | https://polyfork.dev/asset/tool-shed-f61f49 |
+| `grain-silo.glb` | Grain Silo | https://polyfork.dev/asset/grain-silo-58ca67 |
+| `windpump.glb` | Windpump Tower | https://polyfork.dev/asset/windpump-tower-1633a9 |
+| `apple-tree.glb` | Apple Tree | https://polyfork.dev/asset/apple-tree-ef0ba0 |
+| `plum-tree.glb` | Plum Tree | https://polyfork.dev/asset/plum-tree-565179 |
+| `berry-bush.glb` | Berry Bush | https://polyfork.dev/asset/berry-bush-ee4812 |
+| `hay-bale.glb` | Hay Bale | https://polyfork.dev/asset/hay-bale-079e8c |
+| `wheat-crop.glb` | Wheat Crop | https://polyfork.dev/asset/wheat-crop-7e08e6 |
+| `corn-crop.glb` | Corn Crop | https://polyfork.dev/asset/corn-crop-b71f2f |
+| `pumpkin-crop.glb` | Pumpkin Crop | https://polyfork.dev/asset/pumpkin-crop-7de137 |
+| `sunflower.glb` | Sunflower | https://polyfork.dev/asset/sunflower-80ce15 |
+| `strawberry-crop.glb` | Strawberry Crop | https://polyfork.dev/asset/strawberry-crop-6bec33 |
+| `tomato-crop.glb` | Staked Tomato Crop | https://polyfork.dev/asset/staked-tomato-crop-588b3d |
+| `tilled-soil.glb` | Tilled Soil Tile | https://polyfork.dev/asset/tilled-soil-tile-d9152e |
+| `scarecrow.glb` | Scarecrow | https://polyfork.dev/asset/scarecrow-334079 |
+| `wheelbarrow.glb` | Wheelbarrow | https://polyfork.dev/asset/wheelbarrow-0f8406 |
+| `water-trough.glb` | Water Trough | https://polyfork.dev/asset/water-trough-df3ced |
+| `stone-well.glb` | Stone Well | https://polyfork.dev/asset/stone-well-b2dfcd |
+| `farm-gate.glb` | Farm Gate | https://polyfork.dev/asset/farm-gate-8ab320 |
+| `farm-fence.glb` | Wooden Fence Section | https://polyfork.dev/asset/wooden-fence-section-d72055 |
+| `feed-sack.glb` | Feed Sack | https://polyfork.dev/asset/feed-sack-c84641 |
+| `beehive.glb` | Beehive | https://polyfork.dev/asset/beehive-2e70bf |
+| `tractor.glb` | Compact Tractor | https://polyfork.dev/asset/compact-tractor-35b84b |
 
 ### 수정 내역
 - 파일 자체는 수정하지 않고 이름만 바꿈 (끝의 id를 뗌).
@@ -176,6 +202,7 @@ Cat Walk에서 쓰는 외부 에셋의 출처·라이선스·수정 내역이다
 | 2026-11-07 | 문서 작성. Toon Cat FREE, Lowpoly Cat Rig + Run Animation, 울음소리 효과음 기록 |
 | 2026-11-07 | Black Cat(문의 창) 추가 |
 | 2026-11-07 | An Animated Cat(그루밍 동작) 추가 |
+| 2026-11-12 | Polyfork 농장 모델 26종 추가 (Cozy Farm 키트) |
 | 2026-11-12 | Polyfork 들판 모델 19종 추가 (Nature & Forest·Countryside Railway·Insect World 키트) |
 | 2026-11-10 | Polyfork 공원 모델 13종 추가 (Nature & Forest 키트) |
 | 2026-11-09 | Polyfork 골목 소품 모델 12종 추가 (시범). An Animated Cat(그루밍 동작)은 쓰지 않게 됨 (D-55, 파일은 남김) |
