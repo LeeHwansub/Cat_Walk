@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cat Walk</title>
+    <meta name="description" content="고양이가 되어 작은 동네를 거니는 3D 브라우저 게임" />
+    <!-- 링크 미리보기 썸네일: 인트로 첫 장면 (미리보기는 절대 주소만 읽는다) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Cat Walk" />
+    <meta property="og:description" content="고양이가 되어 작은 동네를 거니는 3D 브라우저 게임" />
+    <meta property="og:image" content="https://cat-walk.lee-0f6.workers.dev/assets/intro/intro-poster.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./src/ui/styles.css" />
   </head>
@@ -11,8 +18,11 @@
     <div id="app"></div>
     <div id="fade"></div>
 
-    <!-- 시작 화면 -->
-    <section id="screen-start" class="screen">
+    <!-- 시작 화면: 처음에는 인트로 영상만 (아무 곳이나 누르거나 아무 키나 누르면 메뉴가 영상 위에 나온다) -->
+    <section id="screen-start" class="screen intro">
+      <img class="intro-backdrop" src="./assets/intro/intro-poster.jpg" alt="" aria-hidden="true" />
+      <video class="intro-video" src="./assets/intro/intro.mp4" poster="./assets/intro/intro-poster.jpg" autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
+      <p class="intro-tap">화면을 눌러 시작</p>
       <a class="icon-link corner" href="./info.html" target="_blank" rel="noopener noreferrer" aria-label="정보: 이용 방법·개인정보 처리방침·출처" title="정보·출처">i</a>
       <div class="title-card">
         <h1>Cat Walk</h1>
@@ -100,6 +110,7 @@
         <button id="btn-camera" class="pill"></button>
         <button id="btn-feed" class="pill"><span class="lbl-long">먹이 주기</span><span class="lbl-short">먹이</span> <kbd>F</kbd></button>
         <button id="btn-pose" class="pill">포즈 <kbd>P</kbd></button>
+        <button id="btn-map" class="pill">지도 <kbd>M</kbd></button>
         <button id="btn-chat" class="pill hidden">채팅 <kbd>Enter</kbd></button>
       </div>
       <!-- 채팅: 같은 방 사람들의 대화 (글자로만 표시) -->

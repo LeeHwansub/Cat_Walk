@@ -4,6 +4,8 @@ import { BUILD_RANGE, clampBuild, clampSize, EAR_TYPES, EYE_COLORS, FUR_COLORS, 
 import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
 import { createPoseMenu } from './poseMenuView';
+import { createMapMenu } from './mapMenuView';
+import { MAPS } from '../world/maps';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -56,6 +58,29 @@ export function bindUi(game: Game): void {
   const show = (el: HTMLElement, v: boolean) => el.classList.toggle('hidden', !v);
   const firstGesture = () => game.audio.init();
 
+  // ---------------- 인트로 (2026-11-12): 처음에는 영상과 "화면을 눌러 시작"만. 아무 곳이나 누르거나 아무 키나 누르면 영상 위에 메뉴가 나온다
+  const introVideo = start.querySelector('video');
+  const enterIntro = () => {
+    if (!start.classList.contains('intro')) return;
+    start.classList.remove('intro');
+    firstGesture(); // 첫 입력에 소리를 켤 준비 (브라우저 자동 재생 규칙)
+    if (introVideo?.paused) void introVideo.play().catch(() => {}); // 자동 재생이 막혔던 브라우저(저전력 모드 등)도 누르면 돈다
+  };
+  start.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a')) return; // 정보(i) 링크는 그대로 연다
+    enterIntro();
+  });
+  window.addEventListener('keydown', () => {
+    if (!start.classList.contains('hidden')) enterIntro();
+  });
+  // 시작 화면이 가려지면 영상을 멈춘다 (놀이 중에 몰래 돌지 않게)
+  const showStart = (v: boolean) => {
+    show(start, v);
+    if (!introVideo) return;
+    if (v) void introVideo.play().catch(() => {});
+    else introVideo.pause();
+  };
+
   // ---------------- 시작 화면
   const btnContinue = $<HTMLButtonElement>('btn-continue');
   btnContinue.disabled = !game.hasSave;
@@ -65,13 +90,13 @@ export function bindUi(game: Game): void {
     draft = { ...game.save.cat };
     nickInput.value = game.nick;
     renderCreate();
-    show(start, false);
+    showStart(false);
     show(create, true);
     game.setPhase('create');
   };
   btnContinue.onclick = () => {
     firstGesture();
-    show(start, false);
+    showStart(false);
     show(hud, true);
     game.setPhase('play');
   };
@@ -84,7 +109,7 @@ export function bindUi(game: Game): void {
   $('btn-create-back').onclick = () => {
     game.setAppearance(game.save.cat);
     show(create, false);
-    show(start, true);
+    showStart(true);
     game.setPhase('menu');
   };
   $('btn-create-done').onclick = () => {
@@ -151,11 +176,26 @@ export function bindUi(game: Game): void {
   $('btn-feed').onclick = () => game.giveFood();
   // 포즈 메뉴: 고양이 둘레에 자세 실루엣을 펼친다 (P 키도)
   const poseMenu = createPoseMenu(hud, game);
-  $('btn-pose').onclick = (e) => {
-    e.stopPropagation();
+  // 지도 메뉴: 맵 목록에서 골라 옮긴다 (M 키도, D-58 3단계). 두 메뉴는 한 번에 하나만 연다
+  const mapMenu = createMapMenu(hud, game, MAPS);
+  const togglePose = () => {
+    mapMenu.close();
     poseMenu.toggle();
   };
-  game.onPoseKey = () => poseMenu.toggle();
+  const toggleMap = () => {
+    poseMenu.close();
+    mapMenu.toggle();
+  };
+  $('btn-pose').onclick = (e) => {
+    e.stopPropagation();
+    togglePose();
+  };
+  $('btn-map').onclick = (e) => {
+    e.stopPropagation();
+    toggleMap();
+  };
+  game.onPoseKey = togglePose;
+  game.onMapKey = toggleMap;
   $('btn-settings').onclick = () => openSettings();
 
   // ---------------- 함께 놀기 (멀티플레이, D-59): 접속 상태·인원, 채팅
@@ -258,6 +298,7 @@ export function bindUi(game: Game): void {
     if (e.code !== 'Escape') return;
     if (document.activeElement === chatInput) return closeChat();
     if (poseMenu.isOpen()) return poseMenu.close();
+    if (mapMenu.isOpen()) return mapMenu.close();
     if (settings.classList.contains('hidden')) {
       if (game.phase === 'play') openSettings();
     } else show(settings, false);
