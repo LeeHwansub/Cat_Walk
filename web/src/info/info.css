@@ -177,21 +177,20 @@ code {
   font-weight: 600;
 }
 
-.contact-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
+/* 문의 창: 브라우저 기본 <dialog> (showModal). 배경은 ::backdrop */
+.contact-dialog::backdrop {
   background: rgba(30, 24, 20, 0.4);
+  overflow: hidden; /* 배경 위 스크롤이 뒤 페이지로 넘어가지 않게 */
+  overscroll-behavior: contain;
 }
 
 .contact-dialog {
-  width: min(380px, 100%);
+  width: min(380px, calc(100% - 32px));
   max-height: calc(100vh - 32px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  border: none;
+  color: inherit;
   padding: 20px;
   background: var(--paper);
   border-radius: 18px;

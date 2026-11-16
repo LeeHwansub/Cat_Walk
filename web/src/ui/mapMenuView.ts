@@ -1,3 +1,4 @@
+import { enableLightDismiss } from './dialog';
 import { mapMenuItems, shouldSwitch, type MapEntry } from './mapMenu';
 
 interface MapMenuGame {
@@ -7,24 +8,21 @@ interface MapMenuGame {
 
 /**
  * 지도 메뉴 화면 (D-58 3단계): 맵 목록(이름·한 줄 소개)을 띄우고, 다른 맵을 고르면 그 맵으로 옮긴 뒤 닫힌다.
- * 지금 있는 맵은 "여기"로 표시하고 누를 수 없다. 빈 곳을 누르거나 Esc·M으로 닫는다
+ * 지금 있는 맵은 "여기"로 표시하고 누를 수 없다. 빈 곳을 누르거나 Esc·M으로 닫는다.
+ * 브라우저 기본 <dialog>를 showModal()로 연다 (modern-web-guidance "dialog", 2026-11-16): 뒤 화면 잠금·포커스 가두기·Esc·포커스 되돌리기
  */
 export function createMapMenu(parent: HTMLElement, game: MapMenuGame, maps: readonly MapEntry[]) {
-  const root = document.createElement('div');
-  root.className = 'map-menu hidden';
-  root.setAttribute('role', 'dialog');
-  root.setAttribute('aria-label', '지도');
-  const panel = document.createElement('div');
-  panel.className = 'panel map-panel';
+  const root = document.createElement('dialog');
+  root.className = 'map-menu panel map-panel';
+  root.setAttribute('aria-labelledby', 'map-menu-title');
   const title = document.createElement('h2');
+  title.id = 'map-menu-title';
   title.textContent = '지도';
   const list = document.createElement('div');
   list.className = 'map-list';
-  panel.append(title, list);
-  root.appendChild(panel);
-  panel.addEventListener('click', (e) => e.stopPropagation());
-  root.addEventListener('click', () => close()); // 빈 곳을 누르면 닫는다
+  root.append(title, list);
   parent.appendChild(root);
+  enableLightDismiss(root); // 빈 곳(배경)을 누르면 닫는다
 
   function render() {
     list.replaceChildren(
@@ -57,11 +55,11 @@ export function createMapMenu(parent: HTMLElement, game: MapMenuGame, maps: read
 
   function open() {
     render();
-    root.classList.remove('hidden');
+    if (!root.open) root.showModal();
   }
   function close() {
-    root.classList.add('hidden');
+    if (root.open) root.close();
   }
-  const isOpen = () => !root.classList.contains('hidden');
+  const isOpen = () => root.open;
   return { open, close, isOpen, toggle: () => (isOpen() ? close() : open()) };
 }

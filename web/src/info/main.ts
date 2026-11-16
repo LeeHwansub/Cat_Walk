@@ -6,6 +6,6 @@ const root = document.getElementById('info')!;
 root.innerHTML = renderInfoPage();
 // 문의하기: 검은 고양이 문의 창 (contactDialog.ts)
 const contactBtn = document.getElementById('btn-contact')!;
-contactBtn.addEventListener('click', () => openContactDialog(contactBtn));
+contactBtn.addEventListener('click', () => openContactDialog());
 // 주소에 #credits 같은 위치가 있으면 그리기 뒤에 그곳으로 이동
 if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
