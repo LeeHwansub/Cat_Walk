@@ -93,17 +93,13 @@ describe('크리스마스 맵 "눈 오는 광장" (보드 X-03 평면도대로, 
     expect(map.lights![0]).toMatchObject({ x: 9.3, z: -0.8 });
   });
 
-  it('눈이 내린다: 프레임마다 눈송이가 아래로 움직이고, 바닥에 닿으면 위로 돌아간다', () => {
-    let snow: THREE.Points | undefined;
+  it('눈 내리기는 날씨가 맡는다: 맵에는 눈 입자가 없고 기본 날씨가 눈 (날씨 아이콘, 2026-11-16)', () => {
+    let snow = 0;
     map.group.traverse((o) => {
-      if (o.name === 'snowfall') snow = o as THREE.Points;
+      if ((o as THREE.Points).isPoints && o.name === 'snowfall') snow++;
     });
-    const pos = snow!.geometry.getAttribute('position');
-    const y0 = pos.getY(0);
-    map.update!(0.1);
-    expect(pos.getY(0)).not.toBe(y0);
-    for (let i = 0; i < 400; i++) map.update!(0.1);
-    for (let i = 0; i < pos.count; i++) expect(pos.getY(i)).toBeGreaterThanOrEqual(0);
+    expect(snow).toBe(0);
+    expect(def.defaultWeather).toBe('snow');
   });
 
   it('눈 얹기: 소나무·벤치는 이 맵에서만 눈 재질을 쓰고 원본 모델 재질은 그대로', () => {

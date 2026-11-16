@@ -27,6 +27,8 @@ import { isFree, pathClear, STEP_UP } from './world/collision';
 import type { Interest, Neighborhood } from './world/map/neighborhood';
 import { disposeMap, mapById } from './world/maps';
 import { nextTime, resolveLighting, type TimeOfDay } from './world/lighting';
+import { Precipitation } from './world/precipitation';
+import { weatherLighting, type Weather } from './world/weather';
 import type { PropModels } from './world/propModels';
 import { Stage } from './world/scene';
 import { NetClient, type NetStatus } from './net/client';
@@ -60,13 +62,15 @@ export class Game {
   onPoseKey: () => void = () => {};
   /** M 키: 지도 메뉴 열고 닫기 (UI가 정한다, D-58) */
   onMapKey: () => void = () => {};
-  /** 시간대가 바뀌면 (UI 표시용) */
-  onTimeChange: (t: TimeOfDay) => void = () => {};
+  /** 시간대·날씨가 바뀌면 (오른쪽 위 아이콘 표시용) */
+  onSkyChange: () => void = () => {};
   /** 멀티플레이 (D-59): 채팅 받음, 접속 상태·방 인원 */
   onChat: (nick: string, text: string, mine: boolean) => void = () => {};
   onNet: (status: NetStatus, count: number) => void = () => {};
 
   private readonly stage: Stage;
+  /** 비·눈 입자: 장면에 한 번 붙이고 고양이를 따라간다 (날씨, 2026-11-16) */
+  private readonly precip = new Precipitation();
   /** 지금 맵 (switchMap으로 바뀐다, D-58) */
   private map!: Neighborhood;
   private readonly rig: CatRig;
@@ -130,6 +134,7 @@ export class Game {
   ) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
+    this.stage.scene.add(this.precip.group);
 
     this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel, motions) : new ProceduralCatRig(this.save.cat);
     this.stage.scene.add(this.rig.root);
@@ -183,12 +188,31 @@ export class Game {
     return this.save.timeByMap[this.save.mapId] ?? mapById(this.save.mapId).defaultTime ?? 'day';
   }
 
-  /** 시간대를 바꾸고 맵마다 저장한다 (지도 메뉴·T 키, 2026-11-16) */
+  /** 시간대를 바꾸고 맵마다 저장한다 (오른쪽 위 아이콘·T 키, 2026-11-16) */
   setTimeOfDay(t: TimeOfDay): void {
     this.save.timeByMap[this.save.mapId] = t;
-    this.stage.applyLighting(resolveLighting(mapById(this.save.mapId), t));
+    this.applySky();
     this.persist();
-    this.onTimeChange(t);
+  }
+
+  /** 지금 맵의 날씨: 고른 적이 있으면 그것, 없으면 맵의 기본 (눈 오는 광장은 눈, 나머지는 맑음) */
+  get weather(): Weather {
+    return this.save.weatherByMap[this.save.mapId] ?? mapById(this.save.mapId).defaultWeather ?? 'clear';
+  }
+
+  /** 날씨를 바꾸고 맵마다 저장한다 (오른쪽 위 아이콘, 2026-11-16) */
+  setWeather(w: Weather): void {
+    this.save.weatherByMap[this.save.mapId] = w;
+    this.applySky();
+    this.persist();
+  }
+
+  /** 지금 맵의 시간대 조명에 날씨를 얹어 적용하고, 비·눈 입자를 켜고 끈다. 맵을 불러올 때와 시간·날씨를 바꿀 때 */
+  private applySky(): void {
+    const def = mapById(this.save.mapId);
+    this.stage.applyLighting(weatherLighting(resolveLighting(def, this.timeOfDay), this.weather, def.defaultWeather ?? 'clear'));
+    this.precip.setKind(this.weather);
+    this.onSkyChange(); // 아이콘 표시 (맵을 바꿀 때도)
   }
 
   /**
@@ -229,7 +253,7 @@ export class Game {
     this.save.mapId = def.id;
     this.stage.scene.add(this.map.group);
     this.stage.setMap(this.map.group, this.map.lights ?? []);
-    this.stage.applyLighting(resolveLighting(def, this.timeOfDay));
+    this.applySky();
     const start = at && isFree(this.map.collision, at.x, at.z, 0.2) ? at : this.map.spawn;
     this.ctrl.placeIn(this.map.collision, start.x, start.z, this.map.spawn.heading);
     const fs = this.map.foodStation;
@@ -524,6 +548,7 @@ export class Game {
 
     this.cam.update(dt, now, { x: this.ctrl.x, y: this.ctrl.bodyY + this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
     this.stage.followSun(this.ctrl.x, this.ctrl.z);
+    this.precip.update(dt, this.ctrl.x, this.ctrl.z);
     this.audio.update(dt);
     this.stage.renderer.render(this.stage.scene, this.cam.active);
   }

@@ -80,10 +80,9 @@ export function buildXmas(models: PropModels = {}): Neighborhood {
 
   k.group = k.zones[0].group;
   pineRing(k, b);
-  const snow = snowfall();
-  k.group.add(snow.points);
+  // 눈 내리기는 날씨(precipitation.ts)가 맡는다. 이 맵의 기본 날씨가 눈 (maps.ts, 2026-11-16)
 
-  const keep = new Set([...k.occluders, ...k.unmerged, snow.points]);
+  const keep = new Set([...k.occluders, ...k.unmerged]);
   let mergedAway = 0;
   for (const z of k.zones) mergedAway += mergeStatic(z.group, keep);
 
@@ -98,7 +97,6 @@ export function buildXmas(models: PropModels = {}): Neighborhood {
     npcSpot: { x: -2.9, z: 9.4 },
     mergedAway,
     lights: k.lights,
-    update: snow.update,
   };
 }
 
@@ -347,66 +345,4 @@ function pineRing(k: MapKit, b: Rect): void {
   k.snowy = true;
   k.scatter('tallPine', items);
   k.snowy = false;
-}
-
-/**
- * 눈 내리기: 광장 위 상자 안에 눈송이를 흩뿌리고, 프레임마다 천천히 떨어뜨리며 살짝 흔든다. 바닥에 닿으면 위로 돌린다.
- * 점(Points) 하나로 그린다 (그리기 1회)
- */
-function snowfall(): { points: THREE.Points; update: (dt: number) => void } {
-  const N = 1400;
-  const W = 52;
-  const D = 44;
-  const H = 14;
-  const rng = createRng(6262);
-  const pos = new Float32Array(N * 3);
-  const speed = new Float32Array(N);
-  const phase = new Float32Array(N);
-  for (let i = 0; i < N; i++) {
-    pos[i * 3] = (rng() - 0.5) * W;
-    pos[i * 3 + 1] = rng() * H;
-    pos[i * 3 + 2] = (rng() - 0.5) * D;
-    speed[i] = range(rng, 0.6, 1.3);
-    phase[i] = rng() * Math.PI * 2;
-  }
-  const geo = new THREE.BufferGeometry();
-  const attr = new THREE.BufferAttribute(pos, 3);
-  geo.setAttribute('position', attr);
-  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, H / 2, 0), Math.hypot(W, D, H) / 2);
-  const points = new THREE.Points(
-    geo,
-    new THREE.PointsMaterial({ color: '#ffffff', map: flakeTexture(), size: 0.08, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false }),
-  );
-  points.name = 'snowfall';
-  points.frustumCulled = false;
-  let t = 0;
-  const update = (dt: number) => {
-    t += dt;
-    for (let i = 0; i < N; i++) {
-      let y = pos[i * 3 + 1] - speed[i] * dt;
-      if (y < 0) y += H;
-      pos[i * 3 + 1] = y;
-      pos[i * 3] += Math.sin(t * 0.8 + phase[i]) * 0.15 * dt;
-    }
-    attr.needsUpdate = true;
-  };
-  return { points, update };
-}
-
-/** 둥근 눈송이 그림 (가운데가 진하고 가장자리가 흐린 원). 점은 기본이 네모라 가까이 오면 네모가 보인다. 캔버스 없이 만든다 */
-function flakeTexture(): THREE.DataTexture {
-  const n = 32;
-  const data = new Uint8Array(n * n * 4);
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      const d = Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / (n / 2);
-      const a = Math.max(0, Math.min(1, (1 - d) * 2.2));
-      const i = (y * n + x) * 4;
-      data[i] = data[i + 1] = data[i + 2] = 255;
-      data[i + 3] = Math.round(a * 255);
-    }
-  }
-  const t = new THREE.DataTexture(data, n, n);
-  t.needsUpdate = true;
-  return t;
 }
