@@ -28,6 +28,7 @@ export function createPoseMenu(parent: HTMLElement, game: PoseMenuGame) {
     b.className = 'pose-item';
     b.title = p.label;
     const img = document.createElement('img');
+    img.fetchPriority = 'low'; // 메뉴를 열기 전에는 숨겨져 있다: 첫 화면 그림과 경쟁하지 않게 (modern-web-guidance optimize-image-priority)
     img.src = `${import.meta.env.BASE_URL}assets/ui/poses/${p.id}.png`;
     img.alt = '';
     img.draggable = false;

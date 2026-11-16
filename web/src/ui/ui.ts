@@ -5,6 +5,7 @@ import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
 import { createPoseMenu } from './poseMenuView';
 import { createMapMenu } from './mapMenuView';
+import { enableLightDismiss } from './dialog';
 import { MAPS } from '../world/maps';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -50,7 +51,9 @@ export function bindUi(game: Game): void {
     };
     window.addEventListener('pointerdown', onFirstTouch);
   }
-  const settings = $('settings');
+  // 설정 창: 브라우저 기본 <dialog> (showModal). Esc·바깥 누르기로 닫히고 뒤 화면은 잠긴다 (modern-web-guidance "dialog")
+  const settings = $<HTMLDialogElement>('settings');
+  enableLightDismiss(settings);
   game.setFadeElement($('fade'));
 
   let draft: CatAppearance = { ...game.save.cat };
@@ -242,7 +245,7 @@ export function bindUi(game: Game): void {
   btnChat.onclick = () => (chatForm.classList.contains('hidden') ? openChat() : closeChat());
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'Enter' || game.phase !== 'play' || document.activeElement instanceof HTMLInputElement) return;
-    if (!settings.classList.contains('hidden')) return;
+    if (settings.open) return;
     e.preventDefault();
     openChat();
   });
@@ -280,15 +283,12 @@ export function bindUi(game: Game): void {
     muteCat.checked = s.muteCat;
     shake.checked = s.reduceCamShake;
     fur.value = s.furQuality;
-    show(settings, true);
+    if (!settings.open) settings.showModal();
   }
   const onChange = () =>
     game.setSettings({ muteAll: muteAll.checked, muteCat: muteCat.checked, reduceCamShake: shake.checked, furQuality: isFurQuality(fur.value) ? fur.value : 'auto' });
   muteAll.onchange = muteCat.onchange = shake.onchange = fur.onchange = onChange;
-  $('btn-settings-close').onclick = () => show(settings, false);
-  settings.onclick = (e) => {
-    if (e.target === settings) show(settings, false);
-  };
+  $('btn-settings-close').onclick = () => settings.close();
   $('btn-reset').onclick = () => {
     if (!window.confirm('저장된 고양이와 설정을 모두 지울까요?')) return;
     game.reset();
@@ -299,9 +299,12 @@ export function bindUi(game: Game): void {
     if (document.activeElement === chatInput) return closeChat();
     if (poseMenu.isOpen()) return poseMenu.close();
     if (mapMenu.isOpen()) return mapMenu.close();
-    if (settings.classList.contains('hidden')) {
-      if (game.phase === 'play') openSettings();
-    } else show(settings, false);
+    // 열린 대화창은 브라우저가 Esc로 닫는다. 닫혀 있을 때만 놀이 중 Esc로 설정을 연다.
+    // 이때 Esc의 기본 동작(닫기 요청)을 막는다: 막지 않으면 방금 연 창이 같은 Esc로 바로 닫힐 수 있다
+    if (!settings.open && game.phase === 'play') {
+      e.preventDefault();
+      openSettings();
+    }
   });
 
   game.setSettings(game.save.settings);
