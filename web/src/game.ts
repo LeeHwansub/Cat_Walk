@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { AudioManager } from './audio/AudioManager';
+import { birdsSing } from './audio/rain';
 import { BehaviorBrain, type Senses } from './behavior/brain';
 import type { BehaviorId, InterestKind } from './behavior/types';
 import { CameraRig, type CameraMode } from './camera/CameraRig';
@@ -212,6 +213,8 @@ export class Game {
     const def = mapById(this.save.mapId);
     this.stage.applyLighting(weatherLighting(resolveLighting(def, this.timeOfDay), this.weather, def.defaultWeather ?? 'clear'));
     this.precip.setKind(this.weather);
+    this.audio.setRain(this.weather === 'rain');
+    this.audio.setBirds(birdsSing(this.timeOfDay, this.weather));
     this.onSkyChange(); // 아이콘 표시 (맵을 바꿀 때도)
   }
 

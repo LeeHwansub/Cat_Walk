@@ -1,3 +1,4 @@
+import { dropInterval, RAIN_SOUND } from './rain';
 import { analyzeClip, MEOW_CLIPS, pickMeowClip, PURR_FILES, PURR_LOWPASS_HZ, PURR_MAX_GAIN, sizePitch, type MeowMood } from './clips';
 
 /**
@@ -5,7 +6,7 @@ import { analyzeClip, MEOW_CLIPS, pickMeowClip, PURR_FILES, PURR_LOWPASS_HZ, PUR
  *
  * 울음소리·골골송: 사용자가 제공한 파일(public/assets/sounds)을 재생한다. (docs/ASSETS.md)
  * 파일을 불러오지 못하면 코드로 합성한 소리로 대신한다.
- * 환경음(바람, 새소리): 코드로 합성한다.
+ * 환경음(바람, 새소리, 비 오는 날 빗소리): 코드로 합성한다.
  */
 type SynthKind = 'short' | 'long' | 'trill';
 
@@ -45,6 +46,13 @@ export class AudioManager {
   private birdTimer = 0;
   private muteAll = false;
   private muteCat = false;
+  /** 빗소리 (날씨 비, 2026-11-16): 켜기 전에도 상태를 기억해 init 때 켠다 */
+  private rainOn = false;
+  /** 새소리 (맑은 날 낮에만, 2026-11-16) */
+  private birdsOn = true;
+  private rainGain: GainNode | null = null;
+  private white: AudioBuffer | null = null;
+  private dropTimer = 0;
 
   /** 브라우저는 사용자 입력 전 소리를 막으므로 첫 클릭 때 호출한다 */
   init(): void {
@@ -72,6 +80,7 @@ export class AudioManager {
     this.noise = this.makeNoise(2);
     this.applyMute();
     this.startWind();
+    if (this.rainOn) this.setRain(true);
     void this.loadClips();
   }
 
@@ -289,13 +298,42 @@ export class AudioManager {
     this.purrUntil = now + seconds;
   }
 
-  /** 매 프레임 호출: 가끔 새소리 */
+  /** 지금 비 소리 상태 (소리를 켜기 전에도) */
+  get raining(): boolean {
+    return this.rainOn;
+  }
+
+  /** 날씨가 비면 빗소리를 약 1초에 걸쳐 켜고, 아니면 끈다. 모든 소리 끄기(master)를 따른다 */
+  setRain(on: boolean): void {
+    this.rainOn = on;
+    if (!this.ctx) return;
+    if (on && !this.rainGain) this.startRain();
+    this.rainGain?.gain.setTargetAtTime(on ? RAIN_SOUND.bed : 0, this.ctx.currentTime, RAIN_SOUND.fade);
+  }
+
+  get birds(): boolean {
+    return this.birdsOn;
+  }
+
+  /** 새소리를 켜고 끈다. 끄면 다음 지저귐부터 나지 않는다 (한 번 지저귐은 0.5초 안에 끝난다) */
+  setBirds(on: boolean): void {
+    this.birdsOn = on;
+  }
+
+  /** 매 프레임 호출: 가끔 새소리, 비가 오면 빗방울 */
   update(dt: number): void {
     if (!this.ctx) return;
+    if (this.rainOn) {
+      this.dropTimer -= dt;
+      if (this.dropTimer <= 0) {
+        this.dropTimer = dropInterval(Math.random);
+        this.drop();
+      }
+    }
     this.birdTimer -= dt;
     if (this.birdTimer <= 0) {
       this.birdTimer = 4 + Math.random() * 8;
-      this.chirp();
+      if (this.birdsOn) this.chirp();
     }
   }
 
@@ -341,6 +379,71 @@ export class AudioManager {
     src.connect(lp).connect(g).connect(this.ambBus);
     src.start();
     lfo.start();
+  }
+
+  /** 빗소리 바탕: 쏴아(고음 띠 잡음) + 웅웅(낮은 잡음). 처음 비가 올 때 한 번 만들고, 그치면 크기만 0으로 */
+  private startRain(): void {
+    const ctx = this.ctx!;
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = 0;
+    this.rainGain.connect(this.ambBus);
+    this.white = this.makeWhiteNoise(3);
+    const hiss = ctx.createBufferSource();
+    hiss.buffer = this.white;
+    hiss.loop = true;
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = RAIN_SOUND.hiss.highpass;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = RAIN_SOUND.hiss.lowpass;
+    const hg = ctx.createGain();
+    hg.gain.value = RAIN_SOUND.hiss.gain;
+    hiss.connect(hp).connect(lp).connect(hg).connect(this.rainGain);
+    const rumble = ctx.createBufferSource();
+    rumble.buffer = this.noise;
+    rumble.loop = true;
+    rumble.playbackRate.value = 0.8; // 바람과 같은 잡음이지만 박자가 겹치지 않게
+    const rlp = ctx.createBiquadFilter();
+    rlp.type = 'lowpass';
+    rlp.frequency.value = RAIN_SOUND.rumble.lowpass;
+    const rg = ctx.createGain();
+    rg.gain.value = RAIN_SOUND.rumble.gain;
+    rumble.connect(rlp).connect(rg).connect(this.rainGain);
+    hiss.start();
+    rumble.start();
+  }
+
+  /** 빗방울 하나: 아주 짧은 흰 잡음을 좁은 띠로 걸러 톡 소리, 좌우 아무 데서나. 바탕 소리 크기와 따로 (환경음으로 바로) */
+  private drop(): void {
+    const ctx = this.ctx!;
+    if (!this.white) return;
+    const t = ctx.currentTime + 0.01;
+    const src = ctx.createBufferSource();
+    src.buffer = this.white;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    const [f0, f1] = RAIN_SOUND.dropFreq;
+    bp.frequency.value = f0 + Math.random() * (f1 - f0);
+    bp.Q.value = 6;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(RAIN_SOUND.drop * (0.3 + Math.random() * 0.7), t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = Math.random() * 1.8 - 0.9;
+    src.connect(bp).connect(g).connect(pan).connect(this.ambBus);
+    src.start(t, Math.random() * 1.5);
+    src.stop(t + 0.06);
+  }
+
+  /** 고음까지 고른 흰 잡음 (빗소리용) */
+  private makeWhiteNoise(seconds: number): AudioBuffer {
+    const ctx = this.ctx!;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    return buf;
   }
 
   private makeNoise(seconds: number): AudioBuffer {
