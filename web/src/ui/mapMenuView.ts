@@ -20,7 +20,7 @@ export function createMapMenu(parent: HTMLElement, game: MapMenuGame, maps: read
   title.textContent = '지도';
   const list = document.createElement('div');
   list.className = 'map-list';
-  root.append(title, list);
+  root.append(title, list); // 시간대는 오른쪽 위 시간·날씨 아이콘으로 옮겼다 (skyMenuView.ts, 2026-11-16)
   parent.appendChild(root);
   enableLightDismiss(root); // 빈 곳(배경)을 누르면 닫는다
 

@@ -1,14 +1,18 @@
 import * as THREE from 'three';
 import { buildFarm } from './map/farm';
 import { buildMeadow } from './map/meadow';
+import { buildXmas, XMAS_LIGHTING } from './map/xmas';
 import { buildNeighborhood, type Neighborhood } from './map/neighborhood';
+import type { LitMap } from './lighting';
+import type { WeatherMap } from './weather';
 import type { PropModels } from './propModels';
 
 /**
  * 고를 수 있는 맵 목록 (D-58: 여러 맵, 지도 메뉴로 고르기).
  * 맵마다 같은 모양(Neighborhood: 그룹·충돌·관심 지점·출발점·먹이 쉼터·주민 자리)을 돌려준다.
+ * 조명(lighting)·기본 시간대(defaultTime)·기본 날씨(defaultWeather)는 고를 수 있다: 없으면 공통 조명과 낮, 맑음 (world/lighting.ts, weather.ts)
  */
-export interface MapDef {
+export interface MapDef extends LitMap, WeatherMap {
   id: string;
   /** 지도 메뉴에 보이는 이름 */
   name: string;
@@ -23,6 +27,7 @@ export const MAPS: readonly MapDef[] = [
   { id: DEFAULT_MAP_ID, name: '골목과 공원', blurb: '주택가 골목과 연못이 있는 작은 공원', build: buildNeighborhood },
   { id: 'meadow', name: '들판', blurb: '꽃이 핀 넓은 풀밭과 부들이 자라는 연못', build: buildMeadow },
   { id: 'farm', name: '농장', blurb: '헛간과 건초 더미가 있는 마당, 밭과 과수원', build: buildFarm },
+  { id: 'xmas', name: '눈 오는 광장', blurb: '큰 트리와 선물 상자, 노점과 오두막이 있는 눈 내리는 광장', build: buildXmas, lighting: XMAS_LIGHTING, defaultTime: 'dusk', defaultWeather: 'snow' },
 ];
 
 /** id에 맞는 맵. 없으면(지워진 맵, 손상된 저장) 기본 맵 */

@@ -5,6 +5,7 @@ import type { Game, HudState } from '../game';
 import { hungerLabel } from '../systems/hunger';
 import { createPoseMenu } from './poseMenuView';
 import { createMapMenu } from './mapMenuView';
+import { createSkyMenu } from './skyMenuView';
 import { enableLightDismiss } from './dialog';
 import { MAPS } from '../world/maps';
 
@@ -198,6 +199,9 @@ export function bindUi(game: Game): void {
     toggleMap();
   };
   game.onPoseKey = togglePose;
+  // 시간·날씨 아이콘 (오른쪽 위, 2026-11-16): 누르면 작은 선택 창. T 키로 바꿔도 아이콘을 맞춘다
+  const skyMenu = createSkyMenu($('btn-sky') as HTMLButtonElement, hud, game);
+  game.onSkyChange = () => skyMenu.refresh();
   game.onMapKey = toggleMap;
   $('btn-settings').onclick = () => openSettings();
 
@@ -299,6 +303,7 @@ export function bindUi(game: Game): void {
     if (document.activeElement === chatInput) return closeChat();
     if (poseMenu.isOpen()) return poseMenu.close();
     if (mapMenu.isOpen()) return mapMenu.close();
+    if (skyMenu.isOpen()) return skyMenu.close(); // 브라우저도 Esc로 닫지만, 같은 Esc로 설정이 열리지 않게 먼저 끝낸다
     // 열린 대화창은 브라우저가 Esc로 닫는다. 닫혀 있을 때만 놀이 중 Esc로 설정을 연다.
     // 이때 Esc의 기본 동작(닫기 요청)을 막는다: 막지 않으면 방금 연 창이 같은 Esc로 바로 닫힐 수 있다
     if (!settings.open && game.phase === 'play') {

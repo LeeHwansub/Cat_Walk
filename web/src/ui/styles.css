@@ -710,6 +710,76 @@ dialog.map-menu {
   pointer-events: auto;
 }
 
+/* 지도 메뉴 안 시간대 고르기 (낮·저녁·밤) */
+/* 시간·날씨 아이콘과 선택 창 (오른쪽 위, 2026-11-16) */
+.sky-btn {
+  position: relative;
+}
+
+.sky-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.sky-badge:empty {
+  display: none;
+}
+
+.sky-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(260px, calc(100vw - 16px));
+  padding: 12px 14px 14px;
+  /* #hud는 클릭을 통과시킨다: 창의 빈 곳을 눌러도 뒤 화면으로 넘어가 닫히지 않게 다시 받는다 */
+  pointer-events: auto;
+}
+
+.sky-menu h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.sky-menu h3 + .sky-pick + h3 {
+  margin-top: 12px;
+}
+
+.sky-pick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(59, 51, 48, 0.08);
+}
+
+.sky-pick button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 13px;
+}
+
+.sky-opt-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.sky-pick button[aria-pressed='true'] {
+  background: var(--ink);
+  color: #fff;
+}
+
 dialog.map-menu::backdrop {
   background: rgba(30, 24, 20, 0.25);
 }

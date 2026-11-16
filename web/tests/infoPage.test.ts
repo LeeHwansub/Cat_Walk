@@ -14,7 +14,10 @@ describe('정보 페이지 이용 방법 (2026-11-12 갱신)', () => {
     expect(page).toContain('화면을 눌러 시작');
     expect(page).toContain('<kbd>P</kbd>');
     expect(page).toContain('<kbd>M</kbd>');
-    for (const name of ['골목과 공원', '들판', '농장']) expect(page).toContain(name);
+    expect(page).toContain('<kbd>T</kbd>');
+    expect(page).toContain('시간·날씨 아이콘'); // 날씨 (2026-11-16)
+    expect(page).toContain('맑음·비·눈');
+    for (const name of ['골목과 공원', '들판', '농장', '눈 오는 광장']) expect(page).toContain(name);
     expect(page).toContain('조이스틱');
     expect(page).toContain('점프 버튼');
   });

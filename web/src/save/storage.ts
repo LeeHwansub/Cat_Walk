@@ -31,6 +31,10 @@ export interface SaveData {
   online: boolean;
   /** mapId 맵 안의 위치 */
   position: { x: number; z: number } | null;
+  /** 맵마다 고른 시간대 (없으면 맵의 기본 시간대, 2026-11-16) */
+  timeByMap: Record<string, 'day' | 'dusk' | 'night'>;
+  /** 맵마다 고른 날씨 (2026-11-16). 없으면 맵의 기본 */
+  weatherByMap: Record<string, 'clear' | 'rain' | 'snow'>;
 }
 
 export const SAVE_KEY = 'cat-walk/save';
@@ -43,7 +47,7 @@ export function defaultSettings(): Settings {
 }
 
 export function defaultSave(): SaveData {
-  return { version: VERSION, cat: defaultAppearance(), settings: defaultSettings(), hunger: 80, mapId: DEFAULT_MAP, nick: '', online: true, position: null };
+  return { version: VERSION, cat: defaultAppearance(), settings: defaultSettings(), hunger: 80, mapId: DEFAULT_MAP, nick: '', online: true, position: null, timeByMap: {}, weatherByMap: {} };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -69,7 +73,25 @@ function sanitize(raw: unknown): SaveData | null {
     nick: cleanNick(raw.nick) ?? '',
     online: typeof raw.online === 'boolean' ? raw.online : true,
     position: pos,
+    timeByMap: cleanTimes(raw.timeByMap),
+    weatherByMap: cleanWeathers(raw.weatherByMap),
   };
+}
+
+/** 맵 id(40자 이하)마다 낮·저녁·밤 중 하나만 남긴다 */
+function cleanTimes(v: unknown): SaveData['timeByMap'] {
+  const out: SaveData['timeByMap'] = {};
+  if (!isRecord(v)) return out;
+  for (const [k, t] of Object.entries(v)) if (k.length > 0 && k.length <= 40 && (t === 'day' || t === 'dusk' || t === 'night')) out[k] = t;
+  return out;
+}
+
+/** 맵 id(40자 이하)마다 맑음·비·눈 중 하나만 남긴다 */
+function cleanWeathers(v: unknown): SaveData['weatherByMap'] {
+  const out: SaveData['weatherByMap'] = {};
+  if (!isRecord(v)) return out;
+  for (const [k, w] of Object.entries(v)) if (k.length > 0 && k.length <= 40 && (w === 'clear' || w === 'rain' || w === 'snow')) out[k] = w;
+  return out;
 }
 
 export function loadSave(store: KeyValueStore): SaveData | null {

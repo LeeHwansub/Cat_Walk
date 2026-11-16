@@ -84,6 +84,25 @@ export const PROP_SPECS = {
   feedSack: { file: 'feed-sack.glb', scale: 1 },
   beehive: { file: 'beehive.glb', scale: 1 },
   tractor: { file: 'tractor.glb', scale: 1 }, // 앞(+z) 보닛 1.36m는 못 오르고, 뒷바퀴 덮개 1.1m는 오른다
+  // 크리스마스 "눈 오는 광장" (직접 만든 모델: tools/blender/xmas_props.py, 2026-11-15). 미터 단위, 빛나는 부분은 glow 재질
+  xmasTreeLarge: { file: 'xmas-tree-large.glb', scale: 1 }, // 지름 4.6m, 높이 6.5m
+  xmasTreeSmall: { file: 'xmas-tree-small.glb', scale: 1 }, // 화분 트리 1.5m
+  giftS: { file: 'gift-box-s.glb', scale: 1 }, // 윗면 0.31m
+  giftM: { file: 'gift-box-m.glb', scale: 1 }, // 윗면 0.51m
+  giftL: { file: 'gift-box-l.glb', scale: 1 }, // 윗면 0.81m
+  giftOpen: { file: 'gift-box-open.glb', scale: 1 },
+  marketStall: { file: 'market-stall.glb', scale: 1 }, // 2.6m × 1.66m
+  ribbonLamp: { file: 'ribbon-lamp.glb', scale: 1 }, // 높이 3.2m
+  logCabin: { file: 'log-cabin.glb', scale: 1 }, // 5.46m × 4.44m
+  firewoodStack: { file: 'firewood-stack.glb', scale: 1 }, // 윗면 0.6m
+  firePit: { file: 'fire-pit.glb', scale: 1 },
+  snowman: { file: 'snowman.glb', scale: 1 }, // 높이 1.8m
+  sled: { file: 'sled.glb', scale: 1 }, // 좌석 0.42m
+  snowPile: { file: 'snow-pile.glb', scale: 1 }, // 높이 0.42m
+  woodenReindeer: { file: 'wooden-reindeer.glb', scale: 1 },
+  candyCane: { file: 'candy-cane-post.glb', scale: 1 }, // 높이 2.4m
+  santaMailbox: { file: 'santa-mailbox.glb', scale: 1 },
+  yarnBall: { file: 'yarn-ball.glb', scale: 1 },
 } as const;
 
 export type PropId = keyof typeof PROP_SPECS;
@@ -99,7 +118,9 @@ export const PROP_DIR = 'assets/models/props/';
 export function bakeModel(src: THREE.Object3D, scale: number): THREE.Mesh {
   src.updateMatrixWorld(true);
   const geos: THREE.BufferGeometry[] = [];
-  let material: THREE.Material | null = null;
+  /** 조각마다 쓰는 재질의 번호 (materials 안) */
+  const slot: number[] = [];
+  const materials: THREE.Material[] = [];
   src.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;
@@ -108,10 +129,16 @@ export function bakeModel(src: THREE.Object3D, scale: number): THREE.Mesh {
     // 색이 없는 메시가 섞이면 합칠 수 없어 흰색을 채운다
     if (!g.getAttribute('color')) g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(g.attributes.position.count * 3).fill(1), 3));
     geos.push(g);
-    material ??= Array.isArray(m.material) ? m.material[0] : m.material;
+    const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+    let i = materials.indexOf(mat);
+    if (i < 0) i = materials.push(mat) - 1;
+    slot.push(i);
   });
-  const geo = mergeGeometries(geos, false);
+  // 재질이 둘 이상이면(크리스마스 소품: vc 보통 + glow 빛나는 부분, 2026-11-16) 재질별 구간을 남긴다
+  const multi = materials.length > 1;
+  const geo = mergeGeometries(geos, multi);
   for (const g of geos) g.dispose();
+  if (multi) geo.groups.forEach((gr, i) => (gr.materialIndex = slot[i]));
   geo.computeBoundingBox();
   const b = geo.boundingBox!;
   // 가로·세로 원점은 바닥에 닿는 부분(아래 5%)의 가운데: 팔이 한쪽으로 뻗은 가로등도 기둥이 놓는 자리에 온다
@@ -123,10 +150,23 @@ export function bakeModel(src: THREE.Object3D, scale: number): THREE.Mesh {
   geo.scale(scale, scale, scale);
   geo.computeBoundingBox();
   geo.computeBoundingSphere();
-  const mesh = new THREE.Mesh(geo, material ?? new THREE.MeshStandardMaterial({ vertexColors: true }));
+  const mats = materials.map(asBakedMaterial);
+  const mesh = new THREE.Mesh(geo, multi ? mats : (mats[0] ?? new THREE.MeshStandardMaterial({ vertexColors: true })));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
+}
+
+/**
+ * 빛나는 재질(발광색이 있는 것)은 조명과 상관없이 정점 색을 그대로 보여 주는 재질로 바꾼다.
+ * glb의 발광색(흰색)은 정점 색과 곱해지지 않아, 그대로 두면 빨강·노랑 전구가 모두 하얗게 보인다
+ */
+function asBakedMaterial(m: THREE.Material): THREE.Material {
+  const std = m as THREE.MeshStandardMaterial;
+  if (!std.emissive || std.emissive.getHex() === 0) return m;
+  const glow = new THREE.MeshBasicMaterial({ vertexColors: true, name: m.name || 'glow', toneMapped: false });
+  m.dispose();
+  return glow;
 }
 
 /**
