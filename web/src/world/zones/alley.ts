@@ -84,6 +84,7 @@ function streetProps(k: MapKit): void {
   for (const [x, z, rotY] of [[-15.0, 2.95, Math.PI], [-19.5, -2.95, 0]] as const) {
     k.prop('lamp', x, z, rotY, { w: 0.2, h: 4.5, d: 0.2, color: '#8a8f94' });
     k.circles.push({ x, z, r: 0.15 });
+    k.lights.push({ x, y: 3.9, z: z + (rotY === 0 ? 0.9 : -0.9), color: '#ffe0a8', halo: 1.6 }); // 팔 끝 등
   }
 }
 

@@ -26,6 +26,7 @@ import { PoseHold } from './behavior/poseHold';
 import { isFree, pathClear, STEP_UP } from './world/collision';
 import type { Interest, Neighborhood } from './world/map/neighborhood';
 import { disposeMap, mapById } from './world/maps';
+import { nextTime, resolveLighting, type TimeOfDay } from './world/lighting';
 import type { PropModels } from './world/propModels';
 import { Stage } from './world/scene';
 import { NetClient, type NetStatus } from './net/client';
@@ -59,6 +60,8 @@ export class Game {
   onPoseKey: () => void = () => {};
   /** M 키: 지도 메뉴 열고 닫기 (UI가 정한다, D-58) */
   onMapKey: () => void = () => {};
+  /** 시간대가 바뀌면 (UI 표시용) */
+  onTimeChange: (t: TimeOfDay) => void = () => {};
   /** 멀티플레이 (D-59): 채팅 받음, 접속 상태·방 인원 */
   onChat: (nick: string, text: string, mine: boolean) => void = () => {};
   onNet: (status: NetStatus, count: number) => void = () => {};
@@ -175,6 +178,19 @@ export class Game {
     return this.save.mapId;
   }
 
+  /** 지금 맵의 시간대: 고른 적이 있으면 그것, 없으면 맵의 기본 (눈 오는 광장은 저녁, 나머지는 낮) */
+  get timeOfDay(): TimeOfDay {
+    return this.save.timeByMap[this.save.mapId] ?? mapById(this.save.mapId).defaultTime ?? 'day';
+  }
+
+  /** 시간대를 바꾸고 맵마다 저장한다 (지도 메뉴·T 키, 2026-11-16) */
+  setTimeOfDay(t: TimeOfDay): void {
+    this.save.timeByMap[this.save.mapId] = t;
+    this.stage.applyLighting(resolveLighting(mapById(this.save.mapId), t));
+    this.persist();
+    this.onTimeChange(t);
+  }
+
   /**
    * 다른 맵으로 옮긴다 (D-58): 화면을 잠깐 어둡게 하고, 이전 맵을 내리고, 새 맵의 출발점에서 시작한다.
    * 먹기·걷기 목표·고른 자세는 끝낸다. 같은 맵이면 아무것도 하지 않는다
@@ -212,6 +228,8 @@ export class Game {
     this.map = def.build(this.propModels);
     this.save.mapId = def.id;
     this.stage.scene.add(this.map.group);
+    this.stage.setMap(this.map.group, this.map.lights ?? []);
+    this.stage.applyLighting(resolveLighting(def, this.timeOfDay));
     const start = at && isFree(this.map.collision, at.x, at.z, 0.2) ? at : this.map.spawn;
     this.ctrl.placeIn(this.map.collision, start.x, start.z, this.map.spawn.heading);
     const fs = this.map.foodStation;
@@ -518,6 +536,7 @@ export class Game {
       if (k === 'Space') this.tryJump();
       if (k === 'KeyP') this.onPoseKey();
       if (k === 'KeyM') this.onMapKey();
+      if (k === 'KeyT') this.setTimeOfDay(nextTime(this.timeOfDay));
     }
   }
 

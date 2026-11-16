@@ -710,6 +710,34 @@ dialog.map-menu {
   pointer-events: auto;
 }
 
+/* 지도 메뉴 안 시간대 고르기 (낮·저녁·밤) */
+.time-title {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.time-pick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(59, 51, 48, 0.08);
+}
+
+.time-pick button {
+  min-height: 40px;
+  padding: 6px 0;
+  border: none;
+  background: transparent;
+}
+
+.time-pick button[aria-pressed='true'] {
+  background: var(--ink);
+  color: #fff;
+}
+
 dialog.map-menu::backdrop {
   background: rgba(30, 24, 20, 0.25);
 }

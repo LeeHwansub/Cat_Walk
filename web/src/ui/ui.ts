@@ -198,6 +198,7 @@ export function bindUi(game: Game): void {
     toggleMap();
   };
   game.onPoseKey = togglePose;
+  game.onTimeChange = () => mapMenu.refreshTime(); // T 키로 바꾸면 열린 지도 메뉴 표시도
   game.onMapKey = toggleMap;
   $('btn-settings').onclick = () => openSettings();
 

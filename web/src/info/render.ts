@@ -73,6 +73,7 @@ export function renderInfoPage(): string {
       <li><kbd>C</kbd>: 3인칭 ↔ 고양이 시점 · <kbd>F</kbd>: 먹이 주기 · <kbd>Esc</kbd>: 설정</li>
       <li><kbd>P</kbd>: 포즈 (고양이 둘레에서 자세를 고르면 움직일 때까지 그 자세를 합니다)</li>
       <li><kbd>M</kbd>: 지도 (다른 맵으로 옮기기)</li>
+      <li><kbd>T</kbd>: 시간대 바꾸기 (낮 → 저녁 → 밤)</li>
       <li><kbd>Enter</kbd>: 채팅 (함께 놀기 중)</li>
     </ul>
     <h3>휴대폰</h3>
@@ -87,6 +88,7 @@ export function renderInfoPage(): string {
       <li><b>농장</b>: 헛간과 건초 더미가 있는 마당, 밭과 과수원 (건초 더미는 두 층까지 올라갈 수 있습니다)</li>
       <li><b>눈 오는 광장</b>: 큰 트리와 선물 상자, 노점과 오두막, 모닥불이 있는 눈 내리는 광장</li>
       <li>화면 아래 <b>지도</b> 버튼이나 <kbd>M</kbd>으로 맵을 고릅니다. 마지막에 있던 맵에서 이어서 시작합니다.</li>
+      <li>지도 메뉴의 <b>시간</b>(낮·저녁·밤)이나 <kbd>T</kbd>로 시간대를 바꿉니다. 맵마다 기억하며, 눈 오는 광장은 저녁에서 시작합니다.</li>
     </ul>
     <h3>함께 놀기</h3>
     <ul>

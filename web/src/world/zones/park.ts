@@ -108,6 +108,7 @@ function parkDecor(k: MapKit): void {
     if (!k.models.lanternPost) break;
     k.prop('lanternPost', x, z, z > 0 ? Math.PI : 0, { w: 0.15, h: 2.2, d: 0.15, color: '#6b4f3a' });
     k.circles.push({ x, z, r: 0.12 });
+    k.lights.push({ x, y: 1.9, z, color: '#ffd27a' });
   }
   if (k.models.birdhouse) {
     k.prop('birdhouse', 20.5, -3.5, 0.6, { w: 0.4, h: 1.6, d: 0.4, color: '#7a5636' });

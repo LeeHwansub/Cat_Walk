@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type { InterestKind } from '../../behavior/types';
 import type { Rng } from '../../core/rng';
 import type { Circle, Rect } from '../collision';
+import type { MapLight } from '../lighting';
+import { snowCovered } from '../snowCover';
 import { recolorBody, type PropId, type PropModels } from '../propModels';
 
 export interface Interest {
@@ -35,8 +37,12 @@ export class MapKit {
   readonly occluders: THREE.Object3D[] = [];
   /** 구역 합치기에서 뺄 물체 (정점 색 모델: 합치기가 색 속성을 지운다) */
   readonly unmerged: THREE.Object3D[] = [];
+  /** 불빛 자리 (가로등 머리, 창문 …): 저녁·밤에 빛 번짐과 점조명 (world/lighting.ts) */
+  readonly lights: MapLight[] = [];
   /** 불러온 소품 모델 (없는 것은 prop()이 상자로 대신한다) */
   models: PropModels = {};
+  /** 켜면 이 맵에 놓는 모델은 위를 보는 면에 눈이 얹힌다 (원본 재질은 그대로, world/snowCover.ts) */
+  snowy = false;
   private readonly mats = new Map<string, THREE.MeshStandardMaterial>();
   private readonly tints = new Map<string, THREE.Mesh>();
 
@@ -92,6 +98,7 @@ export class MapKit {
     let o: THREE.Object3D;
     if (model) {
       o = model.clone();
+      if (this.snowy) (o as THREE.Mesh).material = snowCovered((model as THREE.Mesh).material);
     } else {
       const m = new THREE.Mesh(new THREE.BoxGeometry(fallback.w, fallback.h, fallback.d), this.mat(fallback.color));
       m.geometry.translate(0, fallback.h / 2, 0);
@@ -113,7 +120,7 @@ export class MapKit {
   scatter(id: PropId, items: { x: number; z: number; rotY: number; scale: number }[]): THREE.InstancedMesh | null {
     const model = this.models[id] as THREE.Mesh | undefined;
     if (!model || items.length === 0) return null;
-    const inst = new THREE.InstancedMesh(model.geometry, model.material, items.length);
+    const inst = new THREE.InstancedMesh(model.geometry, this.snowy ? snowCovered(model.material) : model.material, items.length);
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const up = new THREE.Vector3(0, 1, 0);

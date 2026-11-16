@@ -1,9 +1,12 @@
 import { enableLightDismiss } from './dialog';
 import { mapMenuItems, shouldSwitch, type MapEntry } from './mapMenu';
+import { TIMES, TIME_LABEL, type TimeOfDay } from '../world/lighting';
 
 interface MapMenuGame {
   readonly mapId: string;
   switchMap(id: string): void;
+  readonly timeOfDay: TimeOfDay;
+  setTimeOfDay(t: TimeOfDay): void;
 }
 
 /**
@@ -20,7 +23,30 @@ export function createMapMenu(parent: HTMLElement, game: MapMenuGame, maps: read
   title.textContent = '지도';
   const list = document.createElement('div');
   list.className = 'map-list';
-  root.append(title, list);
+  // 시간대 (2026-11-16): 지금 맵의 낮·저녁·밤. 맵마다 저장된다. T 키로도 바꾼다
+  const timeTitle = document.createElement('h3');
+  timeTitle.className = 'time-title';
+  timeTitle.id = 'map-menu-time';
+  timeTitle.textContent = '시간 (T)';
+  const timeRow = document.createElement('div');
+  timeRow.className = 'time-pick';
+  timeRow.setAttribute('role', 'group');
+  timeRow.setAttribute('aria-labelledby', 'map-menu-time');
+  const timeBtns = TIMES.map((t) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = TIME_LABEL[t];
+    b.addEventListener('click', () => {
+      game.setTimeOfDay(t);
+      renderTime();
+    });
+    timeRow.appendChild(b);
+    return { t, b };
+  });
+  const renderTime = () => {
+    for (const { t, b } of timeBtns) b.setAttribute('aria-pressed', String(t === game.timeOfDay));
+  };
+  root.append(title, list, timeTitle, timeRow);
   parent.appendChild(root);
   enableLightDismiss(root); // 빈 곳(배경)을 누르면 닫는다
 
@@ -55,11 +81,12 @@ export function createMapMenu(parent: HTMLElement, game: MapMenuGame, maps: read
 
   function open() {
     render();
+    renderTime();
     if (!root.open) root.showModal();
   }
   function close() {
     if (root.open) root.close();
   }
   const isOpen = () => root.open;
-  return { open, close, isOpen, toggle: () => (isOpen() ? close() : open()) };
+  return { open, close, isOpen, toggle: () => (isOpen() ? close() : open()), refreshTime: renderTime };
 }

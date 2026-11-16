@@ -4,6 +4,7 @@ import type { CollisionWorld, Rect } from '../collision';
 import { mergeStatic } from '../merge';
 import { backdropApartments } from '../parts/buildings';
 import { MapKit, type Interest, type Zone } from '../parts/kit';
+import type { MapLight } from '../lighting';
 import type { PropModels } from '../propModels';
 import { buildAlley, buildFeedingCorner, ROAD_HALF } from '../zones/alley';
 import { buildPark } from '../zones/park';
@@ -23,6 +24,8 @@ export interface Neighborhood {
   npcSpot: { x: number; z: number };
   /** 구역 정리로 줄어든 메시 수 (점검용) */
   mergedAway: number;
+  /** 불빛 자리 (가로등 머리, 창문 …). 저녁·밤에 빛 번짐과 점조명 (없으면 불빛 없음) */
+  lights?: MapLight[];
   /** 매 프레임 움직이는 것이 있는 맵만 (크리스마스 맵의 눈 내리기). dt: 초 */
   update?: (dt: number) => void;
 }
@@ -63,6 +66,7 @@ export function buildNeighborhood(models: PropModels = {}): Neighborhood {
     foodStation,
     npcSpot: { x: 1.7, z: 2.6 },
     mergedAway,
+    lights: k.lights,
   };
 }
 
