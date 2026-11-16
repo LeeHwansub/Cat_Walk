@@ -23,6 +23,8 @@ export interface Neighborhood {
   npcSpot: { x: number; z: number };
   /** 구역 정리로 줄어든 메시 수 (점검용) */
   mergedAway: number;
+  /** 매 프레임 움직이는 것이 있는 맵만 (크리스마스 맵의 눈 내리기). dt: 초 */
+  update?: (dt: number) => void;
 }
 
 /**

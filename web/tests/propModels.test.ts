@@ -151,3 +151,37 @@ describe('골목 소품 배치 (시범)', () => {
     expect(isFree(map.collision, map.foodStation.x, map.foodStation.z - 0.6, 0.2)).toBe(true);
   });
 });
+
+describe('빛나는 부분이 있는 모델 굽기 (크리스마스 소품, 2026-11-16)', () => {
+  const colored = (size: number, y: number) => {
+    const g = new THREE.BoxGeometry(size, size, size).translate(0, y, 0);
+    g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(g.attributes.position.count * 3).fill(0.5), 3));
+    return g;
+  };
+
+  it('재질이 둘(vc·glow)이면 재질별 구간을 남기고, 빛나는 재질은 조명과 상관없이 정점 색 그대로 밝게 보인다', () => {
+    const src = new THREE.Group();
+    src.add(new THREE.Mesh(colored(1, 0.5), new THREE.MeshStandardMaterial({ name: 'vc', vertexColors: true })));
+    src.add(new THREE.Mesh(colored(0.2, 1.2), new THREE.MeshStandardMaterial({ name: 'glow', vertexColors: true, emissive: 0xffffff })));
+    const m = bakeModel(src, 1);
+    expect(Array.isArray(m.material)).toBe(true);
+    const mats = m.material as THREE.Material[];
+    expect(mats).toHaveLength(2);
+    expect(mats[0]).toBeInstanceOf(THREE.MeshStandardMaterial);
+    expect(mats[1]).toBeInstanceOf(THREE.MeshBasicMaterial); // 발광 흰색은 정점 색과 곱해지지 않아 모두 하얗게 보이므로
+    expect((mats[1] as THREE.MeshBasicMaterial).vertexColors).toBe(true);
+    const groups = m.geometry.groups.map((g) => g.materialIndex).sort();
+    expect(groups).toEqual([0, 1]);
+    const total = m.geometry.groups.reduce((s, g) => s + g.count, 0);
+    expect(total).toBe(m.geometry.attributes.position.count);
+  });
+
+  it('재질이 하나인 모델(지금 소품 전부)은 예전처럼 재질 하나·구간 없음', () => {
+    const src = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true });
+    src.add(new THREE.Mesh(colored(1, 0.5), mat), new THREE.Mesh(colored(0.5, 1.2), mat));
+    const m = bakeModel(src, 1);
+    expect(Array.isArray(m.material)).toBe(false);
+    expect(m.geometry.groups).toHaveLength(0);
+  });
+});

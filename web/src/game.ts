@@ -452,6 +452,7 @@ export class Game {
     const now = this.time;
 
     this.standingUp = false;
+    this.map.update?.(dt); // 맵이 움직이는 것 (눈 내리기 등)
     this.handleKeys();
     if (this.phase === 'play') this.updatePlay(dt, now);
     else if (this.phase === 'menu') this.updateAuto(dt, now);

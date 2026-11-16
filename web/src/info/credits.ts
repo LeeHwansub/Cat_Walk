@@ -141,6 +141,7 @@ export const CREDITS: Credit[] = [
 export const OWN_ASSETS: string[] = [
   '골골송 녹음 2개: 사용자가 직접 녹음 (web/public/assets/sounds/purr-*.m4a)',
   '동네 건물·소품·바닥 텍스처, 바람·새소리 등: 코드로 생성',
+  '눈 오는 광장 소품 18종(트리·선물 상자·노점·오두막·눈사람 등): Blender 스크립트로 직접 만듦 (tools/blender/xmas_props.py)',
 ];
 
 /** 정보 페이지 시행일 */
