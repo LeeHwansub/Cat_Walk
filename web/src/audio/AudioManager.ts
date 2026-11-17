@@ -1,4 +1,4 @@
-import { dropInterval, RAIN_SOUND } from './rain';
+import { dropInterval, RAIN_SOUND, SNOW_STEP } from './rain';
 import { analyzeClip, MEOW_CLIPS, pickMeowClip, PURR_FILES, PURR_LOWPASS_HZ, PURR_MAX_GAIN, sizePitch, type MeowMood } from './clips';
 
 /**
@@ -444,6 +444,28 @@ export class AudioManager {
     const data = buf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
     return buf;
+  }
+
+  /** 눈 밟는 소리 한 번: 짧은 잡음을 중간 띠로 걸러 뽀드득. 고양이 소리 쪽(고양이 소리 끄기를 따름) */
+  snowStep(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime + 0.005;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = 1.6 + Math.random() * 0.5;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    const [f0, f1] = SNOW_STEP.bandpass;
+    bp.frequency.value = f0 + Math.random() * (f1 - f0);
+    bp.Q.value = SNOW_STEP.q;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(SNOW_STEP.gain * (0.7 + Math.random() * 0.3), t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + SNOW_STEP.length);
+    src.connect(bp).connect(g).connect(this.catLimiter);
+    src.start(t, Math.random() * 1.5);
+    src.stop(t + SNOW_STEP.length + 0.02);
   }
 
   private makeNoise(seconds: number): AudioBuffer {

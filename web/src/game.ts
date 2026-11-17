@@ -30,6 +30,7 @@ import { disposeMap, mapById } from './world/maps';
 import { warmPurrSeconds } from './behavior/selector';
 import { nextTime, resolveLighting, type TimeOfDay } from './world/lighting';
 import { Precipitation } from './world/precipitation';
+import { Footprints, stepsCrossed } from './world/footprints';
 import { weatherLighting, type Weather } from './world/weather';
 import type { PropModels } from './world/propModels';
 import { Stage } from './world/scene';
@@ -75,6 +76,9 @@ export class Game {
   private readonly stage: Stage;
   /** 비·눈 입자: 장면에 한 번 붙이고 고양이를 따라간다 (날씨, 2026-11-16) */
   private readonly precip = new Precipitation();
+  /** 눈 위 발자국 (눈 오는 광장, 보드 X-05): 장면에 한 번 붙이고 맵을 바꾸면 지운다 */
+  private readonly footprints = new Footprints();
+  private lastGait = 0;
   /** 지금 맵 (switchMap으로 바뀐다, D-58) */
   private map!: Neighborhood;
   private readonly rig: CatRig;
@@ -141,6 +145,7 @@ export class Game {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
     this.stage.scene.add(this.precip.group);
+    this.stage.scene.add(this.footprints.mesh);
 
     this.rig = catModel ? new SkinnedCatRig(this.save.cat, catModel, motions) : new ProceduralCatRig(this.save.cat);
     this.stage.scene.add(this.rig.root);
@@ -258,6 +263,7 @@ export class Game {
   private loadMap(id: string, at: { x: number; z: number } | null): void {
     const def = mapById(id);
     this.map = def.build(this.propModels);
+    this.footprints.clear();
     this.save.mapId = def.id;
     this.stage.scene.add(this.map.group);
     this.stage.setMap(this.map.group, this.map.lights ?? []);
@@ -467,6 +473,20 @@ export class Game {
     return purr > 0;
   }
 
+  /**
+   * 눈 위 발자국 (보드 X-05): 걸음마다 눈 바닥이면 발자국을 찍고 눈 밟는 소리를 낸다.
+   * 땅에 붙어 걸을 때만 (담·상자 위, 점프 중에는 아님). 돌바닥·얼음과 다른 맵에는 남지 않는다
+   */
+  private leaveFootprints(now: number): void {
+    const steps = stepsCrossed(this.lastGait, this.ctrl.gaitPhase);
+    this.lastGait = this.ctrl.gaitPhase;
+    if (steps.length && this.ctrl.speed > 0.05 && this.ctrl.y < 0.05 && !this.ctrl.jumping && this.map.surfaceAt?.(this.ctrl.x, this.ctrl.z) === 'snow') {
+      for (const side of steps) this.footprints.add(this.ctrl.x, this.ctrl.z, this.ctrl.heading, side, now, this.ctrl.scale);
+      if (this.phase === 'play') this.audio.snowStep();
+    }
+    this.footprints.update(now);
+  }
+
   /** 고양이 몸 가운데의 화면 위치 (CSS 픽셀). 카메라 뒤에 있으면 null */
   catScreenPos(): { x: number; y: number } | null {
     const v = new THREE.Vector3(this.ctrl.x, this.ctrl.bodyY + this.floatHeight + 0.14 * this.ctrl.scale, this.ctrl.z).project(this.cam.active);
@@ -571,6 +591,7 @@ export class Game {
     this.cam.update(dt, now, { x: this.ctrl.x, y: this.ctrl.bodyY + this.floatHeight, z: this.ctrl.z, heading: this.ctrl.heading, speed: this.ctrl.speed, scale: this.ctrl.scale }, this.rig.eyeAnchor, this.map.occluders, this.save.settings.reduceCamShake);
     this.stage.followSun(this.ctrl.x, this.ctrl.z);
     this.precip.update(dt, this.ctrl.x, this.ctrl.z);
+    this.leaveFootprints(now);
     this.audio.update(dt);
     this.stage.renderer.render(this.stage.scene, this.cam.active);
   }

@@ -6,7 +6,7 @@ import { MapKit } from '../parts/kit';
 import { bench, feedingShelter } from '../parts/props';
 import type { Lighting, TimeOfDay } from '../lighting';
 import type { PropId, PropModels } from '../propModels';
-import type { Neighborhood } from './neighborhood';
+import type { Neighborhood, Surface } from './neighborhood';
 
 /**
  * 크리스마스 맵 "눈 오는 광장" (2026-11-16). 설계: Cowork "Cat Walk 보드" X-01~X-06 (평면도 X-03의 좌표 그대로).
@@ -97,6 +97,7 @@ export function buildXmas(models: PropModels = {}): Neighborhood {
     npcSpot: { x: -2.9, z: 9.4 },
     mergedAway,
     lights: k.lights,
+    surfaceAt: xmasSurface,
   };
 }
 
@@ -110,6 +111,23 @@ function footprint(k: MapKit, x: number, z: number, w: number, d: number, rotY: 
 }
 
 /** 바닥에 붙인 판 (돌바닥 길, 마켓 거리) */
+/** 광장에서 나가는 돌길: [폭(x), 길이(z), 가운데 x, z, 색]. 그리기와 바닥 판정(발자국)이 같이 쓴다 */
+const PATHS: [number, number, number, number, string][] = [
+  [2.4, 7, 0, -9.5, '#d3d0cc'], // 남쪽 입구 길
+  [2.4, 2.4, 0, 6.6, '#d3d0cc'], // 북쪽 마켓 거리로
+  [26, 3.4, 0, 8.7, '#d6d4d0'], // 마켓 거리
+  [3, 2, -7.4, -3, '#d3d0cc'], // 동쪽 얼음 연못으로
+  [2.4, 2, 7.2, -0.8, '#d3d0cc'], // 서쪽 화로로
+];
+
+/** 바닥 종류: 광장 원과 길은 돌, 연못은 얼음, 나머지는 눈 (발자국, 보드 X-05) */
+function xmasSurface(x: number, z: number): Surface {
+  if (Math.hypot(x - POND.x, z - POND.z) <= POND.r) return 'ice';
+  if (Math.hypot(x, z) <= PLAZA_R) return 'stone';
+  if (PATHS.some(([w, d, cx, cz]) => Math.abs(x - cx) <= w / 2 && Math.abs(z - cz) <= d / 2)) return 'stone';
+  return 'snow';
+}
+
 function slab(k: MapKit, w: number, d: number, color: string, x: number, z: number, y = 0.004): void {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), k.mat(color, 1));
   m.rotation.x = -Math.PI / 2;
@@ -134,12 +152,7 @@ function plaza(k: MapKit): void {
   stone.position.y = 0.006;
   stone.receiveShadow = true;
   k.group.add(stone);
-  const path = '#d3d0cc';
-  slab(k, 2.4, 7, path, 0, -9.5); // 남쪽 입구 길
-  slab(k, 2.4, 2.4, path, 0, 6.6); // 북쪽 마켓 거리로
-  slab(k, 26, 3.4, '#d6d4d0', 0, 8.7); // 마켓 거리
-  slab(k, 3, 2, path, -7.4, -3); // 동쪽 얼음 연못으로
-  slab(k, 2.4, 2, path, 7.2, -0.8); // 서쪽 화로로
+  for (const [w, d, x, z, color] of PATHS) slab(k, w, d, color, x, z);
 
   k.occluders.push(k.prop('xmasTreeLarge', 0, 0, 0.3, { w: 4.2, h: 6.5, d: 4.2, color: '#2f6b3a' }));
   k.circles.push({ x: 0, z: 0, r: 0.35 }); // 줄기만: 가지 밑으로 지나간다

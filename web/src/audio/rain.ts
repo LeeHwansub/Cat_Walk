@@ -19,6 +19,9 @@ export const RAIN_SOUND = {
   dropFreq: [2200, 5200] as const,
 };
 
+/** 눈 밟는 소리 (눈 오는 광장 눈 위 걸음, 보드 X-05): 아주 짧게 뽀드득. 고양이 발소리라 작게 */
+export const SNOW_STEP = { length: 0.09, gain: 0.045, bandpass: [700, 1500] as const, q: 1.4 };
+
 /** 새소리는 맑은 날 낮에만 (사용자 요청 2026-11-16: 저녁·밤·비·눈에는 굳이 필요 없다) */
 export function birdsSing(t: TimeOfDay, w: Weather): boolean {
   return t === 'day' && w === 'clear';
