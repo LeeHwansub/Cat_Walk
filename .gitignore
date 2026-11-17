@@ -4,3 +4,6 @@ _box
 
 # 파이썬 캐시 (tools/blender 스크립트 실행 시 생김)
 __pycache__/
+
+# macOS 폴더 정보 파일
+.DS_Store
