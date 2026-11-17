@@ -6,6 +6,7 @@ import { MapKit } from '../parts/kit';
 import { bench, feedingShelter } from '../parts/props';
 import type { Lighting, TimeOfDay } from '../lighting';
 import type { PropId, PropModels } from '../propModels';
+import { BOX_FLOOR } from '../../behavior/box';
 import type { Neighborhood, Surface } from './neighborhood';
 
 /**
@@ -173,9 +174,12 @@ function plaza(k: MapKit): void {
     footprint(k, x, z, w * 0.9, w * 0.9, rot, top);
   }
   k.interests.push({ kind: 'bench', x: -2.5, z: -1.9, r: 0.9 }); // 대 상자 위: 광장을 내려다보는 자리
-  // 빈 상자(들어가 앉는 자리, 충돌 없음)와 털실 공
-  k.prop('giftOpen', 2.6, -1.9, -0.5, { w: 0.62, h: 0.4, d: 0.62, color: '#b33a3a' });
-  k.interests.push({ kind: 'bench', x: 2.6, z: -1.9, r: 0.6 });
+  // 빈 상자(뛰어 들어가 앉는 자리, 보드 X-05)와 털실 공. 벽은 막히고 안쪽 바닥은 턱보다 높아 걸어서는 못 들어간다
+  k.occluders.push(k.prop('giftOpen', 2.6, -1.9, -0.5, { w: 0.62, h: 0.4, d: 0.62, color: '#b33a3a' })); // 카메라가 상자에 가리면 다가간다
+  footprint(k, 2.6, -1.9, 0.6, 0.6, -0.5, BOX_FLOOR);
+  // 기대 세운 뚜껑 (모델 -z쪽 0.43m, 돌린 뒤 남동쪽): 막힌 판. 지나가거나 넘어 들어갈 수 없다
+  footprint(k, 2.6 - 0.43 * Math.sin(-0.5), -1.9 - 0.43 * Math.cos(-0.5), 0.62, 0.12, -0.5);
+  k.interests.push({ kind: 'box', x: 2.6, z: -1.9, r: 0.9 });
   k.prop('yarnBall', 3.6, -3.1, -0.6, { w: 0.22, h: 0.22, d: 0.22, color: '#c0392b' });
 
   for (const [x, z] of [[-7, 6], [7, 6], [-7, -6], [7, -6]] as const) lamp(k, x, z, false);

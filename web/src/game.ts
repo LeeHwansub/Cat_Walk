@@ -28,6 +28,7 @@ import { isFree, pathClear, STEP_UP } from './world/collision';
 import type { Interest, Neighborhood } from './world/map/neighborhood';
 import { disposeMap, mapById } from './world/maps';
 import { warmPurrSeconds } from './behavior/selector';
+import { BOX_FLOOR, BOX_SIT_DELAY, nextBoxStill, staysInBox } from './behavior/box';
 import { nextTime, resolveLighting, type TimeOfDay } from './world/lighting';
 import { Precipitation } from './world/precipitation';
 import { Footprints, stepsCrossed } from './world/footprints';
@@ -54,7 +55,7 @@ const MANUAL_RETURN = 5;
 const SNIFF_KINDS: InterestKind[] = ['grass', 'flower', 'pot', 'car', 'pond'];
 /** 관심 지점별로 바라보는 높이 (m). 햇볕 자리·연못처럼 바라볼 물체가 없는 곳은 제외 */
 /** 자동 생활에서 좀 멀어도 가끔 찾아가는 자리 (눈 오는 광장 화로, 보드 X-05) */
-const FAVORITE_KINDS: readonly InterestKind[] = ['warm'];
+const FAVORITE_KINDS: readonly InterestKind[] = ['warm', 'box'];
 const GAZE_HEIGHT: Partial<Record<InterestKind, number>> = { grass: 0.08, flower: 0.25, pot: 0.3, car: 0.5, food: 0.05, bench: 0.45 };
 
 export class Game {
@@ -107,6 +108,10 @@ export class Game {
   private standingUp = false;
   /** 지금 행동을 화로 곁에서 시작했는가 (식빵 눈 가늘게, 보드 X-05) */
   private cozy = false;
+  /** 상자 안에서 멈춰 있은 시간 (상자에 쏙, 보드 X-05) */
+  private boxStill = 0;
+  /** 자동 생활: 이 상자 앞에 닿으면 뛰어 들어간다 */
+  private boxJumpAt: { x: number; z: number } | null = null;
   private moveHeldBefore = false;
   private lastEarTwitch = -10;
   /** 이스터 에그: 체형 최대일 때 풍선처럼 떠다니기 */
@@ -473,6 +478,35 @@ export class Game {
     return purr > 0;
   }
 
+  /** 상자 안쪽 바닥에 있는가 (상자 가운데 가까이, 땅보다 높이) */
+  private inBox(): boolean {
+    return this.boxHere() !== null;
+  }
+
+  /** 고양이가 들어가 있는 상자 (없으면 null) */
+  private boxHere(): Interest | null {
+    if (Math.abs(this.ctrl.y - BOX_FLOOR) > 0.06 || this.ctrl.jumping) return null;
+    // 안쪽 바닥은 가운데에서 약 0.41m까지 (돌린 상자의 바닥 사각형)
+    return this.map.interests.find((i) => i.kind === 'box' && Math.hypot(i.x - this.ctrl.x, i.z - this.ctrl.z) < 0.45) ?? null;
+  }
+
+  /**
+   * 자동 생활에서 상자로 갈 자리: 둘레 8방향 중 거기서 상자 쪽으로 뛰면 안쪽 바닥에 내려앉는 곳
+   * (뚜껑이 있는 쪽은 넘어 들어갈 수 없다)
+   */
+  private boxApproach(it: Interest): { x: number; z: number } | null {
+    const r = 0.16 * this.ctrl.scale;
+    for (let i = 0; i < 8; i++) {
+      const a = Math.atan2(this.ctrl.x - it.x, this.ctrl.z - it.z) + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (Math.PI / 4);
+      const x = it.x + Math.sin(a) * 0.75;
+      const z = it.z + Math.cos(a) * 0.75;
+      if (!isFree(this.map.collision, x, z, r) || !this.reachable(x, z)) continue;
+      const l = findLanding(this.map.collision, x, z, 0, a + Math.PI, this.ctrl.scale, r);
+      if (l && Math.abs(l.y - BOX_FLOOR) < 0.02 && Math.hypot(l.x - it.x, l.z - it.z) < 0.3) return { x, z };
+    }
+    return null;
+  }
+
   /**
    * 눈 위 발자국 (보드 X-05): 걸음마다 눈 바닥이면 발자국을 찍고 눈 밟는 소리를 낸다.
    * 땅에 붙어 걸을 때만 (담·상자 위, 점프 중에는 아님). 돌바닥·얼음과 다른 맵에는 남지 않는다
@@ -575,6 +609,7 @@ export class Game {
         floating: this.balloon.amount,
         jump: this.ctrl.jumpPose(),
         cozy: this.cozy,
+        boxSit: this.boxStill >= BOX_SIT_DELAY && !this.eating,
       },
       dt,
     );
@@ -592,6 +627,14 @@ export class Game {
     this.stage.followSun(this.ctrl.x, this.ctrl.z);
     this.precip.update(dt, this.ctrl.x, this.ctrl.z);
     this.leaveFootprints(now);
+    this.boxStill = nextBoxStill(this.boxStill, dt, this.inBox(), this.ctrl.speed);
+    // 상자에 앉으면 상자 가운데로 천천히 옮겨 앉는다 (가장자리에 내려앉으면 꼬리가 벽·뚜껑 밖으로 나온다)
+    const box = this.boxStill >= BOX_SIT_DELAY ? this.boxHere() : null;
+    if (box) {
+      const k = Math.min(1, dt * 3);
+      this.ctrl.x += (box.x - this.ctrl.x) * k;
+      this.ctrl.z += (box.z - this.ctrl.z) * k;
+    }
     this.audio.update(dt);
     this.stage.renderer.render(this.stage.scene, this.cam.active);
   }
@@ -634,6 +677,7 @@ export class Game {
    */
   private jumpDownIfHigh(): boolean {
     if (this.ctrl.y <= STEP_UP) return false;
+    if (staysInBox(this.inBox(), this.brain.current.id)) return false; // 상자 안에서 쉬는 중 (보드 X-05)
     const r = 0.16 * this.ctrl.scale;
     for (let i = 0; i < 8; i++) {
       const h = this.ctrl.heading + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (Math.PI / 4);
@@ -738,6 +782,12 @@ export class Game {
         if (!this.walkTarget) this.walkTarget = this.pickWalkTarget();
         if (this.brain.current.id !== 'walk') break; // 배고파서 먹기로 바뀐 경우
         const arrived = this.ctrl.walkTo(this.walkTarget.x, this.walkTarget.z, dt);
+        if (arrived && this.boxJumpAt) {
+          // 상자 앞: 상자 쪽을 보고 폴짝 뛰어 들어간다 (착지는 점프가 고른다)
+          this.ctrl.heading = Math.atan2(this.boxJumpAt.x - this.ctrl.x, this.boxJumpAt.z - this.ctrl.z);
+          this.boxJumpAt = null;
+          this.ctrl.jump();
+        }
         if (arrived) this.finishBehavior(now);
         else if (this.isStuck(now)) this.reactToBlock(now);
         break;
@@ -747,6 +797,10 @@ export class Game {
         this.ctrl.brake(dt);
         break;
       case 'sniff':
+        if (this.boxHere()) {
+          this.ctrl.brake(dt); // 상자 안: 일어서지 않고 앉은 채 둘러본다 (일어서면 상자 자세가 풀린다)
+          break;
+        }
         if (!this.readyToMove(dt)) break;
         if (this.sniffTarget) this.ctrl.face(this.sniffTarget.x, this.sniffTarget.z, dt);
         else this.ctrl.brake(dt);
@@ -758,7 +812,10 @@ export class Game {
 
   private onBehaviorStart(id: BehaviorId, now: number): void {
     this.progressCheck = { at: now, x: this.ctrl.x, z: this.ctrl.z };
-    if (id === 'walk') this.walkTarget = null;
+    if (id === 'walk') {
+      this.walkTarget = null;
+      this.boxJumpAt = null;
+    }
     if (this.phase === 'menu') return;
     if (id === 'walk' && this.rng() < 0.1) this.audio.meow('normal');
     if (id === 'lookAround' && this.rng() < 0.15) this.audio.meow('curious');
@@ -919,9 +976,13 @@ export class Game {
     }
     // 가끔은 좀 멀어도 좋아하는 자리(화로 곁)로 (보드 X-05: 자동 생활에서는 스스로 찾아간다)
     if (this.rng() < 0.2) {
-      const fav = this.map.interests.find((i) => FAVORITE_KINDS.includes(i.kind) && Math.hypot(i.x - cx, i.z - cz) < 16 && Math.hypot(i.x - cx, i.z - cz) > i.r);
-      const t = fav && this.approachPoint(fav);
-      if (t) return t;
+      const favs = this.map.interests.filter((i) => FAVORITE_KINDS.includes(i.kind) && Math.hypot(i.x - cx, i.z - cz) < 16 && Math.hypot(i.x - cx, i.z - cz) > i.r);
+      const fav = favs[Math.floor(this.rng() * favs.length)];
+      const t = fav && (fav.kind === 'box' ? this.boxApproach(fav) : this.approachPoint(fav));
+      if (t) {
+        if (fav.kind === 'box') this.boxJumpAt = { x: fav.x, z: fav.z }; // 상자 앞에 닿으면 뛰어 들어간다
+        return t;
+      }
     }
     // 대부분은 근처 관심 지점(화분, 풀, 차, 햇볕 자리 등)으로
     if (this.rng() < 0.65) {

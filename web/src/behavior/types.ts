@@ -19,7 +19,7 @@ export type BehaviorId =
 export type AnimBehavior = BehaviorId | 'lickLips';
 
 /** 맵의 관심 지점 종류. 자율 행동이 주변 환경에 반응하는 근거가 된다. (기획서 5.4) */
-export type InterestKind = 'grass' | 'flower' | 'pot' | 'car' | 'food' | 'sunspot' | 'bench' | 'pond' | 'warm';
+export type InterestKind = 'grass' | 'flower' | 'pot' | 'car' | 'food' | 'sunspot' | 'bench' | 'pond' | 'warm' | 'box';
 
 export interface BehaviorContext {
   /** 현재 시각 (초) */

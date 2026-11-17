@@ -17,7 +17,7 @@ function run(a: CatAnimator, over: Partial<AnimInput>, seconds: number) {
 
 describe('누운 자세 (Blender로 만든 cat-poses.glb)', () => {
   it('자세 다섯 개: 배 보이기·옆으로 눕기·식빵·낮잠·꼬리 감기', () => {
-    expect([...LIE_POSES]).toEqual(['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose']);
+    expect([...LIE_POSES]).toEqual(['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose', 'boxSit']); // 상자 앉기 (2026-11-17)
   });
 
   it('배 보이기 중에는 배 보이기 자세 비율이 1로 올라간다', () => {

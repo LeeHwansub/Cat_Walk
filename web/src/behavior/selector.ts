@@ -32,7 +32,7 @@ export const COOLDOWN: Partial<Record<BehaviorId, number>> = {
 };
 
 const SNIFF_TARGETS = ['grass', 'flower', 'pot', 'car'] as const;
-const REST_SPOTS = ['sunspot', 'bench'] as const;
+const REST_SPOTS = ['sunspot', 'bench', 'box'] as const;
 
 /**
  * 현재 상황에서 각 행동의 가중치를 계산한다.
@@ -88,6 +88,7 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
     w.nap += 2;
     w.walk *= 0.5;
   }
+  if (ctx.nearby.includes('box')) w.walk *= 0.5; // 상자 안에서는 좀 더 머문다 (보드 X-05)
   if (ctx.nearby.includes('food') && ctx.hunger < 70) w.eat = 5;
 
   // 같은 행동 연속 반복 방지 (걷기는 이어질 수 있으므로 덜 줄인다)

@@ -117,9 +117,22 @@ def jump_land(arm):
     rot(arm, 'head_018', L, -6)
     legs(arm, (-75, -80, -60), (-130, -150, -120, -70))
 
+# ---- 눈 오는 광장 자동 반응 (보드 X-05, 2026-11-17)
+
+def box_sit(arm):
+    # 상자에 쏙: 엉덩이를 깊이 내리고 몸을 세워 동그랗게 말아 앉는다. 앞발은 모아 몸 밑으로,
+    # 고개는 들어 상자 테두리 너머를 본다 (귀와 눈만 상자 위로)
+    rot(arm, 'torso_02', L, -40)              # 몸을 세운다 (코가 위로)
+    rot(arm, 'spine.01_012', L, 12)           # 등을 둥글게
+    rot(arm, 'spine.02_013', L, 10)
+    rot(arm, 'neck_017', L, 8)                # 몸을 세운 만큼 고개를 조금만 앞으로 (고개를 든다)
+    rot(arm, 'head_018', L, -10)              # 턱을 들어 상자 테두리 너머를 본다
+    legs(arm, (-100, -95, -10), (-20, -165, -40, -5))  # 앞다리는 거의 수직으로 모으고, 뒷다리는 엉덩이 밑에 깊게 접는다
+
 # 이름 = 게임의 자세 값 이름 (web/src/cat/liePoses.ts LIE_POSES·JUMP_POSES와 같아야 한다)
 POSES = [('bellyUp', belly), ('sideLie', side), ('loafPose', loaf), ('napPose', nap), ('wrapPose', tailwrap),
-         ('jumpCrouch', jump_crouch), ('jumpLaunch', jump_launch), ('jumpAir', jump_air), ('jumpLand', jump_land)]
+         ('jumpCrouch', jump_crouch), ('jumpLaunch', jump_launch), ('jumpAir', jump_air), ('jumpLand', jump_land),
+         ('boxSit', box_sit)]
 ONLY = os.environ.get('POSES')
 if ONLY: POSES = [x for x in POSES if x[0] in ONLY.split(',')]
 for name, fn in POSES:
