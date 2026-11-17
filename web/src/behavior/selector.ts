@@ -1,5 +1,5 @@
 import { range, type Rng } from '../core/rng';
-import { LYING_BEHAVIORS, REST_BEHAVIORS, type BehaviorChoice, type BehaviorContext, type BehaviorId } from './types';
+import { LYING_BEHAVIORS, REST_BEHAVIORS, type BehaviorChoice, type BehaviorContext, type BehaviorId, type InterestKind } from './types';
 
 /** 행동별 지속 시간 범위 (초) */
 export const DURATION: Record<BehaviorId, [number, number]> = {
@@ -82,6 +82,12 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
     w.sit += 0.5;
     w.tailWrap += 0.8; // 햇볕 자리에서 늘어지기
   }
+  // 화로 곁 (눈 오는 광장, 보드 X-05): 식빵·낮잠을 더 자주, 덜 돌아다닌다
+  if (ctx.nearby.includes('warm')) {
+    w.loaf += 2.5;
+    w.nap += 2;
+    w.walk *= 0.5;
+  }
   if (ctx.nearby.includes('food') && ctx.hunger < 70) w.eat = 5;
 
   // 같은 행동 연속 반복 방지 (걷기는 이어질 수 있으므로 덜 줄인다)
@@ -92,6 +98,12 @@ export function behaviorWeights(ctx: BehaviorContext): Record<BehaviorId, number
     if (until !== undefined && until > ctx.now) w[id] = 0;
   }
   return w;
+}
+
+/** 화로 곁에서 식빵·낮잠을 시작하면 골골송을 얼마나 (초). 아니면 0. 골골송은 길어도 12초 (보드 X-05) */
+export function warmPurrSeconds(id: BehaviorId, nearby: readonly InterestKind[], duration: number): number {
+  if ((id !== 'loaf' && id !== 'nap') || !nearby.includes('warm')) return 0;
+  return Math.min(duration, 12);
 }
 
 export function chooseBehavior(ctx: BehaviorContext, rng: Rng): BehaviorChoice {

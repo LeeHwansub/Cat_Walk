@@ -27,6 +27,7 @@ import { PoseHold } from './behavior/poseHold';
 import { isFree, pathClear, STEP_UP } from './world/collision';
 import type { Interest, Neighborhood } from './world/map/neighborhood';
 import { disposeMap, mapById } from './world/maps';
+import { warmPurrSeconds } from './behavior/selector';
 import { nextTime, resolveLighting, type TimeOfDay } from './world/lighting';
 import { Precipitation } from './world/precipitation';
 import { weatherLighting, type Weather } from './world/weather';
@@ -51,6 +52,8 @@ export interface HudState {
 const MANUAL_RETURN = 5;
 const SNIFF_KINDS: InterestKind[] = ['grass', 'flower', 'pot', 'car', 'pond'];
 /** 관심 지점별로 바라보는 높이 (m). 햇볕 자리·연못처럼 바라볼 물체가 없는 곳은 제외 */
+/** 자동 생활에서 좀 멀어도 가끔 찾아가는 자리 (눈 오는 광장 화로, 보드 X-05) */
+const FAVORITE_KINDS: readonly InterestKind[] = ['warm'];
 const GAZE_HEIGHT: Partial<Record<InterestKind, number>> = { grass: 0.08, flower: 0.25, pot: 0.3, car: 0.5, food: 0.05, bench: 0.45 };
 
 export class Game {
@@ -98,6 +101,8 @@ export class Game {
   private eating: { seq: EatingSequence; bowl: FoodBowl } | null = null;
   /** 이번 프레임에 이동하려고 일어서는 중 */
   private standingUp = false;
+  /** 지금 행동을 화로 곁에서 시작했는가 (식빵 눈 가늘게, 보드 X-05) */
+  private cozy = false;
   private moveHeldBefore = false;
   private lastEarTwitch = -10;
   /** 이스터 에그: 체형 최대일 때 풍선처럼 떠다니기 */
@@ -445,8 +450,21 @@ export class Game {
     }
     const c = this.poseHold.start(id);
     this.brain.interrupt(c.id, c.duration, this.time);
+    this.warmRest(c.id, c.duration); // 포즈 메뉴로 고른 식빵·낮잠도 화로 곁이면 같은 반응
     this.lastInputAt = this.time;
     this.emitHud();
+  }
+
+  /**
+   * 화로 곁에서 쉬기 (보드 X-05, 자동 생활·포즈 메뉴 모두): 화로 곁인지 기억하고(식빵이면 눈을 가늘게),
+   * 식빵·낮잠이면 골골송을 낸다. 골골송을 냈으면 true
+   */
+  private warmRest(id: BehaviorId, duration: number): boolean {
+    const kinds = this.nearbyKinds();
+    this.cozy = kinds.includes('warm');
+    const purr = warmPurrSeconds(id, kinds, duration);
+    if (purr > 0) this.audio.purr(purr);
+    return purr > 0;
   }
 
   /** 고양이 몸 가운데의 화면 위치 (CSS 픽셀). 카메라 뒤에 있으면 null */
@@ -536,6 +554,7 @@ export class Game {
         standingUp: this.standingUp,
         floating: this.balloon.amount,
         jump: this.ctrl.jumpPose(),
+        cozy: this.cozy,
       },
       dt,
     );
@@ -722,7 +741,7 @@ export class Game {
     if (this.phase === 'menu') return;
     if (id === 'walk' && this.rng() < 0.1) this.audio.meow('normal');
     if (id === 'lookAround' && this.rng() < 0.15) this.audio.meow('curious');
-    if (id === 'nap') this.audio.purr(6);
+    if (!this.warmRest(id, this.brain.current.duration) && id === 'nap') this.audio.purr(6);
     if (id === 'sniff') this.sniffTarget = this.nearestInterest(SNIFF_KINDS);
     if (id === 'eat') {
       const bowl = this.nearestFilledBowl(1.6);
@@ -876,6 +895,12 @@ export class Game {
         this.audio.meow('hungry');
         return { x: this.ctrl.x, z: this.ctrl.z };
       }
+    }
+    // 가끔은 좀 멀어도 좋아하는 자리(화로 곁)로 (보드 X-05: 자동 생활에서는 스스로 찾아간다)
+    if (this.rng() < 0.2) {
+      const fav = this.map.interests.find((i) => FAVORITE_KINDS.includes(i.kind) && Math.hypot(i.x - cx, i.z - cz) < 16 && Math.hypot(i.x - cx, i.z - cz) > i.r);
+      const t = fav && this.approachPoint(fav);
+      if (t) return t;
     }
     // 대부분은 근처 관심 지점(화분, 풀, 차, 햇볕 자리 등)으로
     if (this.rng() < 0.65) {

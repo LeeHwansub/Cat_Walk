@@ -28,6 +28,8 @@ export interface AnimInput {
   gaze?: GazeAngles | null;
   /** 점프 자세 비율 (CatController.jumpPose). 점프 단계가 빨라 지연 없이 그대로 쓴다 */
   jump?: JumpWeights;
+  /** 화로 곁 (눈 오는 광장): 식빵 자세에서 눈을 가늘게 뜬다 */
+  cozy?: boolean;
 }
 
 /** 행동별로 시선 대상을 따르는 정도. 없는 행동(그루밍·먹기·냄새 맡기 등)은 자기 동작에 집중한다 */
@@ -169,7 +171,7 @@ export class CatAnimator {
         t.tailWag = 0.04;
         t.headPitch = 0.05;
         t.headYaw = Math.sin(e * 0.25 + this.lookSeed) * 0.25;
-        t.eyesClosed = 0.35;
+        t.eyesClosed = input.cozy ? 0.62 : 0.35; // 화로 곁이면 눈을 가늘게
         break;
       case 'sideLie':
         t.lie = 1;

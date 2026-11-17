@@ -237,7 +237,7 @@ function firePlace(k: MapKit): void {
   k.prop('firePit', FIRE.x, FIRE.z, 0, { w: 1.3, h: 0.5, d: 1.3, color: '#6b6b6b' });
   k.circles.push({ x: FIRE.x, z: FIRE.z, r: 0.6 });
   k.lights.unshift({ x: FIRE.x, y: 0.6, z: FIRE.z, color: '#ff9a3c', halo: 1.8 }); // 첫째 불빛 (점조명)
-  k.interests.push({ kind: 'sunspot', x: FIRE.x - 1.9, z: FIRE.z, r: 1.2 }); // 따뜻한 자리 (광장 쪽)
+  k.interests.push({ kind: 'warm', x: FIRE.x, z: FIRE.z, r: 2.2 }); // 화로 곁 따뜻한 자리: 식빵·낮잠·골골송 (보드 X-05)
   k.snowy = true;
   for (const a of [Math.PI * 0.58, -Math.PI * 0.58, 0]) {
     const x = FIRE.x + Math.cos(a) * 1.55;
