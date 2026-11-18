@@ -571,6 +571,8 @@ export class Game {
     this.standingUp = false;
     this.map.update?.(dt); // 맵이 움직이는 것 (눈 내리기 등)
     this.handleKeys();
+    // 발밑이 얼음이면 미끄럽다 (눈 오는 광장 연못, 보드 X-05). 점프·높은 곳에서는 아님
+    this.ctrl.slippery = this.map.surfaceAt?.(this.ctrl.x, this.ctrl.z) === 'ice' && this.ctrl.y < 0.05 && !this.ctrl.jumping;
     if (this.phase === 'play') this.updatePlay(dt, now);
     else if (this.phase === 'menu') this.updateAuto(dt, now);
     else this.ctrl.brake(dt);
@@ -610,6 +612,7 @@ export class Game {
         jump: this.ctrl.jumpPose(),
         cozy: this.cozy,
         boxSit: this.boxStill >= BOX_SIT_DELAY && !this.eating,
+        iceBrace: this.ctrl.sliding,
       },
       dt,
     );

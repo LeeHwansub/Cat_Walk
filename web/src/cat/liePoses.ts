@@ -6,7 +6,7 @@
 export const CAT_POSES_FILE = 'cat-poses.glb';
 
 /** 파일 안 동작 이름 = 자세 값 이름 (CatPose의 같은 이름). 식빵·낮잠·꼬리 감기는 2026-11-08 추가 (다리가 몸 밑에 묻혀 보이던 것) */
-export const LIE_POSES = ['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose', 'boxSit'] as const; // boxSit: 상자에 쏙 (보드 X-05, 2026-11-17)
+export const LIE_POSES = ['bellyUp', 'sideLie', 'loafPose', 'napPose', 'wrapPose', 'boxSit', 'iceBrace'] as const; // boxSit: 상자에 쏙, iceBrace: 얼음 위 버티기 (보드 X-05)
 export type LiePose = (typeof LIE_POSES)[number];
 
 /** 점프 자세 (J-2): 웅크리기 · 도약 · 공중 · 착지. 같은 파일·같은 뼈를 쓴다 (tools/blender/poses.py) */

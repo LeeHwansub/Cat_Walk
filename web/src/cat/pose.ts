@@ -59,6 +59,8 @@ export interface CatPose {
   wrapPose: number;
   /** 상자에 쏙 (눈 오는 광장, Blender 자세 boxSit) */
   boxSit: number;
+  /** 얼음 위 미끄러지며 버티기 (Blender 자세 iceBrace) */
+  iceBrace: number;
   /** 0 ~ 1 점프 자세 비율 (Blender 자세, J-2): 웅크리기 · 도약 · 공중 · 착지 */
   jumpCrouch: number;
   jumpLaunch: number;
@@ -100,6 +102,7 @@ export function neutralPose(): CatPose {
     napPose: 0,
     wrapPose: 0,
     boxSit: 0,
+    iceBrace: 0,
     jumpCrouch: 0,
     jumpLaunch: 0,
     jumpAir: 0,
