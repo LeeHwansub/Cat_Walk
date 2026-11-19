@@ -14,6 +14,26 @@ export type { Interest, Zone };
 /** 바닥 종류: 눈(발자국이 남음), 돌(광장·길), 얼음 */
 export type Surface = 'snow' | 'stone' | 'ice';
 
+/** Blender로 만든 주민 모델 (tools/blender/npc.py) */
+export type ResidentKind = 'santa' | 'rudolph';
+/** npcSpot 주민이 보는 방향 (모든 맵 같다, 0 = +z) */
+export const NPC_FACING = -2.4;
+
+/** from에 선 사람이 to를 보는 방향 (0 = +z, ResidentSpot.facing과 같은 기준) */
+export function facingToward(from: { x: number; z: number }, to: { x: number; z: number }): number {
+  return Math.atan2(to.x - from.x, to.z - from.z);
+}
+
+/** 모델 주민 자리. facing: 보는 방향 (0 = +z) */
+export interface ResidentSpot {
+  kind: ResidentKind;
+  x: number;
+  z: number;
+  facing: number;
+  /** 빈 그릇을 채워 주는 주민 (맵에 한 명) */
+  feeds: boolean;
+}
+
 export interface Neighborhood {
   group: THREE.Group;
   /** 구역별 그룹 (공용 바닥·배경 'shared', 골목 'alley', 공원 'park') */
@@ -25,6 +45,8 @@ export interface Neighborhood {
   spawn: { x: number; z: number; heading: number };
   foodStation: { x: number; z: number };
   npcSpot: { x: number; z: number };
+  /** 모델 주민들 (눈 오는 광장만: 산타·루돌프, 4단계). 없으면 npcSpot에 도형 주민 한 명 */
+  residents?: ResidentSpot[];
   /** 구역 정리로 줄어든 메시 수 (점검용) */
   mergedAway: number;
   /** 불빛 자리 (가로등 머리, 창문 …). 저녁·밤에 빛 번짐과 점조명 (없으면 불빛 없음) */

@@ -7,7 +7,7 @@ import { bench, feedingShelter } from '../parts/props';
 import type { Lighting, TimeOfDay } from '../lighting';
 import type { PropId, PropModels } from '../propModels';
 import { BOX_FLOOR } from '../../behavior/box';
-import type { Neighborhood, Surface } from './neighborhood';
+import { facingToward, NPC_FACING, type Neighborhood, type Surface } from './neighborhood';
 
 /**
  * 크리스마스 맵 "눈 오는 광장" (2026-11-16). 설계: Cowork "Cat Walk 보드" X-01~X-06 (평면도 X-03의 좌표 그대로).
@@ -57,6 +57,11 @@ export const XMAS_BOUNDS: Rect = { minX: -20, maxX: 20, minZ: -16, maxZ: 16 };
 const PLAZA_R = 6.2;
 const FIRE = { x: 9.3, z: -0.8 };
 const FOOD = { x: -4.2, z: 9.3 };
+/** 출발점: 남쪽 입구에서 북쪽(광장)을 본다 */
+const SPAWN = { x: 0, z: -10, heading: 0 };
+/** 주민 자리: 산타는 급식소 옆(그릇을 채운다), 루돌프는 남쪽 입구 나무 순록 곁 */
+const SANTA = { x: -2.9, z: 9.4 };
+const RUDOLPH = { x: 3.7, z: -6.0 };
 const POND = { x: -13, z: -3, r: 4.2 };
 const STALL_Z = 11.2;
 const LAMP_Z = 7.9;
@@ -93,9 +98,14 @@ export function buildXmas(models: PropModels = {}): Neighborhood {
     collision: { bounds: b, rects: k.rects, circles: k.circles },
     interests: k.interests,
     occluders: k.occluders,
-    spawn: { x: 0, z: -10, heading: 0 },
+    spawn: SPAWN,
     foodStation: FOOD,
-    npcSpot: { x: -2.9, z: 9.4 },
+    npcSpot: SANTA,
+    // 산타는 예전 주민과 같은 방향, 루돌프는 고양이가 들어오는 쪽(출발점)을 본다
+    residents: [
+      { kind: 'santa', ...SANTA, facing: NPC_FACING, feeds: true },
+      { kind: 'rudolph', ...RUDOLPH, facing: facingToward(RUDOLPH, SPAWN), feeds: false },
+    ],
     mergedAway,
     lights: k.lights,
     surfaceAt: xmasSurface,
