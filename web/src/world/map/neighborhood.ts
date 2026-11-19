@@ -11,6 +11,9 @@ import { buildPark } from '../zones/park';
 
 export type { Interest, Zone };
 
+/** 바닥 종류: 눈(발자국이 남음), 돌(광장·길), 얼음 */
+export type Surface = 'snow' | 'stone' | 'ice';
+
 export interface Neighborhood {
   group: THREE.Group;
   /** 구역별 그룹 (공용 바닥·배경 'shared', 골목 'alley', 공원 'park') */
@@ -28,6 +31,8 @@ export interface Neighborhood {
   lights?: MapLight[];
   /** 매 프레임 움직이는 것이 있는 맵만 (크리스마스 맵의 눈 내리기). dt: 초 */
   update?: (dt: number) => void;
+  /** 이 자리 바닥 종류 (눈 오는 광장만: 눈 위에만 발자국, 보드 X-05). 없으면 발자국이 남지 않는다 */
+  surfaceAt?: (x: number, z: number) => Surface;
 }
 
 /**

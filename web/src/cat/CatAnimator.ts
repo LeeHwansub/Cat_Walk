@@ -28,6 +28,12 @@ export interface AnimInput {
   gaze?: GazeAngles | null;
   /** 점프 자세 비율 (CatController.jumpPose). 점프 단계가 빨라 지연 없이 그대로 쓴다 */
   jump?: JumpWeights;
+  /** 화로 곁 (눈 오는 광장): 식빵 자세에서 눈을 가늘게 뜬다 */
+  cozy?: boolean;
+  /** 상자 안에서 1.5초 멈춤 (눈 오는 광장): 몸을 말아 상자에 앉는다. 행동보다 우선 */
+  boxSit?: boolean;
+  /** 얼음 위에서 미끄러지는 중: 발을 벌리고 버틴다. 걷는 중·일어서는 중에도 */
+  iceBrace?: boolean;
 }
 
 /** 행동별로 시선 대상을 따르는 정도. 없는 행동(그루밍·먹기·냄새 맡기 등)은 자기 동작에 집중한다 */
@@ -90,6 +96,8 @@ export class CatAnimator {
     p.loafPose += (t.loafPose - p.loafPose) * k(3);
     p.napPose += (t.napPose - p.napPose) * k(3);
     p.wrapPose += (t.wrapPose - p.wrapPose) * k(3);
+    p.boxSit += (t.boxSit - p.boxSit) * k(input.standingUp ? STAND_UP_RATE : 3); // 움직이면 바로 폴짝
+    p.iceBrace += (t.iceBrace - p.iceBrace) * k(t.iceBrace > p.iceBrace ? 10 : 3); // 미끄러지면 바로 버티고, 서면 천천히 푼다
     p.lick += (t.lick - p.lick) * k(6);
     p.eyesClosed += (t.eyesClosed - p.eyesClosed) * k(t.eyesClosed > p.eyesClosed ? 1.2 : 5);
     const up = input.standingUp;
@@ -169,7 +177,7 @@ export class CatAnimator {
         t.tailWag = 0.04;
         t.headPitch = 0.05;
         t.headYaw = Math.sin(e * 0.25 + this.lookSeed) * 0.25;
-        t.eyesClosed = 0.35;
+        t.eyesClosed = input.cozy ? 0.62 : 0.35; // 화로 곁이면 눈을 가늘게
         break;
       case 'sideLie':
         t.lie = 1;
@@ -232,6 +240,27 @@ export class CatAnimator {
         break;
     }
 
+    // 상자에 쏙 (보드 X-05): 몸을 세워 말아 앉고 고개를 들어 테두리 너머를 본다. 다른 자세는 내려놓는다
+    if (input.boxSit) {
+      t.sit = 1;
+      t.lie = 0;
+      t.tuck = 0;
+      t.roll = 0;
+      t.stretch = 0;
+      t.manSit = 0;
+      t.bellyUp = 0;
+      t.sideLie = 0;
+      t.loafPose = 0;
+      t.napPose = 0;
+      t.wrapPose = 0;
+      t.boxSit = 1;
+      t.tailUp = 0;
+      t.tailWag = 0.04;
+      t.eyesClosed = Math.min(t.eyesClosed, 0.1);
+    }
+
+    if (input.iceBrace) t.iceBrace = 1; // 얼음 위 미끄덩 (보드 X-05)
+
     // 시선: 쉬는 행동 중에는 관심 대상 쪽으로 고개를 돌리고, 남는 각도는 눈동자로 본다
     let gw = input.gaze && !input.petted ? (GAZE_WEIGHT[input.behavior] ?? 0) : 0;
     // 걷는 중(직접 조작 포함)에는 앞을 보며 힐끗 보는 정도만
@@ -266,6 +295,7 @@ export class CatAnimator {
       t.loafPose = 0;
       t.napPose = 0;
       t.wrapPose = 0;
+      t.boxSit = 0;
     }
     const fl = input.floating ?? 0;
     if (fl > 0.01) {
@@ -280,6 +310,8 @@ export class CatAnimator {
       t.loafPose *= 1 - fl;
       t.napPose *= 1 - fl;
       t.wrapPose *= 1 - fl;
+      t.boxSit *= 1 - fl;
+      t.iceBrace *= 1 - fl;
       t.tuck *= 1 - fl;
       t.roll *= 1 - fl;
       t.stretch *= 1 - fl;
@@ -299,6 +331,7 @@ export class CatAnimator {
       t.loafPose = 0;
       t.napPose = 0;
       t.wrapPose = 0;
+      t.boxSit = 0;
       t.tuck = 0;
       t.roll = 0;
       t.stretch = 0;

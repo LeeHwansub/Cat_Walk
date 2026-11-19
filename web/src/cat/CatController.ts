@@ -35,6 +35,28 @@ const NARROW = 0.5;
 /** 좁은 윗면에서 미는 방향이 담 방향에서 이 각도 안이면 담 방향으로 맞춘다 */
 const ALIGN = (65 * Math.PI) / 180;
 
+/**
+ * 얼음 위 미끄럼 (보드 X-05): 실제 움직임이 바뀔 수 있는 빠르기 (m/s²). 마찰이 작아 멈추려 해도 천천히 선다:
+ * 걷다(0.62m/s) 멈추면 0.62² / (2 × 0.5) ≈ 0.4m 더 미끄러진다. (늦게 따라가기만 하면 늦을 뿐 더 가지는 않는다)
+ */
+const ICE_ACCEL = 0.5;
+/** 가려는 것보다 이만큼(m/s) 더 밀려가면 미끄러지는 중 */
+const SLIDE_GAP = 0.12;
+
+/**
+ * 실제 움직임(v) 중 가려는 움직임(i)을 넘어선 부분의 크기: 옆으로 밀리는 것 + 가려는 것보다 빠른 것.
+ * 속도가 아직 덜 붙은 것(출발)은 넣지 않는다: 미끄럼은 멈추거나 방향을 바꿀 때만 (보드 X-05)
+ */
+function slideExcess(vx: number, vz: number, ix: number, iz: number): number {
+  const il = Math.hypot(ix, iz);
+  if (il < 1e-4) return Math.hypot(vx, vz);
+  const ux = ix / il;
+  const uz = iz / il;
+  const along = vx * ux + vz * uz;
+  const kept = Math.min(Math.max(along, 0), il);
+  return Math.hypot(vx - ux * kept, vz - uz * kept);
+}
+
 const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /**
@@ -54,6 +76,12 @@ export class CatController {
   vy = 0;
   /** 높은 곳 가장자리를 계속 민 시간 (초, J-3) */
   private edgePush = 0;
+  /** 발밑이 얼음인가 (게임이 매 프레임 정한다). 미끄러우면 실제 움직임이 가려는 움직임을 늦게 따라간다 */
+  slippery = false;
+  /** 실제 움직임 (m/s). 얼음 밖에서는 늘 가려는 움직임(방향 × 속도)과 같다 */
+  private vx = 0;
+  private vz = 0;
+  private slidingNow = false;
   /** 진행 중인 점프 (J-2). 점프 중에는 이동 입력을 받지 않는다 */
   private jumpState: { phase: JumpPhase; t: number; air: number; x0: number; z0: number; y0: number; x1: number; z1: number; y1: number; lead: number } | null = null;
 
@@ -77,6 +105,11 @@ export class CatController {
    */
   get speedScale(): number {
     return Math.pow(this.scale, 0.6) * this.speedMul;
+  }
+
+  /** 얼음 위에서 가려는 움직임과 실제 움직임이 크게 다름: 멈추거나 방향을 바꿔 밀려가는 중 (발을 벌리고 버틴다) */
+  get sliding(): boolean {
+    return this.slidingNow;
   }
 
   get jumping(): boolean {
@@ -159,7 +192,8 @@ export class CatController {
     this.turn(diff, dt);
     // 크게 돌아야 하면 천천히, 도착 직전에도 천천히
     const turnSlow = Math.abs(diff) > 1 ? 0.3 : 1;
-    const arriveSlow = Math.min(1, dist / 0.6);
+    // 얼음 위에서는 미리 늦추지 않는다: 닿은 뒤 미끄러진다 (보드 X-05)
+    const arriveSlow = this.slippery ? 1 : Math.min(1, dist / 0.6);
     this.accelerate(maxSpeed * this.speedScale * turnSlow * Math.max(0.35, arriveSlow), dt);
     this.advance(dt);
     return false;
@@ -174,6 +208,9 @@ export class CatController {
     this.jumpState = null;
     this.vy = 0;
     this.speed = 0;
+    this.vx = 0;
+    this.vz = 0;
+    this.slidingNow = false;
     this.turnRate = 0;
     this.edgePush = 0;
     this.y = groundAt(world, x, z, 0);
@@ -336,12 +373,30 @@ export class CatController {
 
   private move(dt: number): void {
     this.updateVertical(dt);
-    if (this.speed < 1e-4) {
+    // 가려는 움직임. 얼음 위에서는 실제 움직임이 이것을 늦게 따라가 미끄러진다 (보드 X-05)
+    const ix = Math.sin(this.heading) * this.speed;
+    const iz = Math.cos(this.heading) * this.speed;
+    if (this.slippery) {
+      const gx = ix - this.vx;
+      const gz = iz - this.vz;
+      const gap = Math.hypot(gx, gz);
+      const f = gap > ICE_ACCEL * dt ? (ICE_ACCEL * dt) / gap : 1;
+      this.vx += gx * f;
+      this.vz += gz * f;
+    } else {
+      this.vx = ix;
+      this.vz = iz;
+    }
+    this.slidingNow = this.slippery && slideExcess(this.vx, this.vz, ix, iz) > SLIDE_GAP;
+    if (this.speed < 1e-4 && Math.hypot(this.vx, this.vz) < 1e-3) {
       this.speed = 0;
+      this.vx = 0;
+      this.vz = 0;
       return;
     }
-    const dx = Math.sin(this.heading) * this.speed * dt;
-    const dz = Math.cos(this.heading) * this.speed * dt;
+    if (this.speed < 1e-4) this.speed = 0;
+    const dx = this.vx * dt;
+    const dz = this.vz * dt;
     const rad = this.radius;
     let r = resolveCircle(this.world, this.x + dx, this.z + dz, rad, this.y);
     // 높은 곳 가장자리에서는 떨어지지 않는다: 한 축씩 미끄러져 보고, 그래도 안 되면 멈춘다 (내려가려면 점프, J-2)
@@ -354,8 +409,18 @@ export class CatController {
     this.z = r.z;
     // 느리면 보폭이 줄고(애니메이터와 같은 비율), 빠르면 보폭은 그대로 두고 걸음이 빨라진다
     const norm = Math.min(1, Math.max(0.3, this.speed / (WALK_SPEED * this.speedScale)));
-    this.gaitPhase = (this.gaitPhase + moved / (this.cycleLength * this.scale * norm)) % 1;
+    // 미끄러지는 동안에는 발을 벌리고 버틴 채 밀려가므로 걸음이 나아가지 않는다
+    if (!this.slidingNow) this.gaitPhase = (this.gaitPhase + moved / (this.cycleLength * this.scale * norm)) % 1;
     // 벽에 막히면 실제 이동량에 맞춰 속도를 줄인다 (제자리 걸음 방지)
     if (dt > 0) this.speed = Math.min(this.speed, moved / dt + 0.05);
+    if (this.slippery && dt > 0) {
+      // 미끄러지다 벽에 막히면 미는 힘도 그만큼 줄인다
+      const v = Math.hypot(this.vx, this.vz);
+      if (v * dt > 1e-6 && moved < v * dt) {
+        const f = moved / (v * dt);
+        this.vx *= f;
+        this.vz *= f;
+      }
+    }
   }
 }
