@@ -161,7 +161,7 @@ export function bakeModel(src: THREE.Object3D, scale: number): THREE.Mesh {
  * 빛나는 재질(발광색이 있는 것)은 조명과 상관없이 정점 색을 그대로 보여 주는 재질로 바꾼다.
  * glb의 발광색(흰색)은 정점 색과 곱해지지 않아, 그대로 두면 빨강·노랑 전구가 모두 하얗게 보인다
  */
-function asBakedMaterial(m: THREE.Material): THREE.Material {
+export function asBakedMaterial(m: THREE.Material): THREE.Material {
   const std = m as THREE.MeshStandardMaterial;
   if (!std.emissive || std.emissive.getHex() === 0) return m;
   const glow = new THREE.MeshBasicMaterial({ vertexColors: true, name: m.name || 'glow', toneMapped: false });

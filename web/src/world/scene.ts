@@ -23,6 +23,8 @@ export class Stage {
   private halos: THREE.Points | null = null;
   /** 시간대에 맞춰 밝기를 바꿀 맵 (빛나는 재질) */
   private mapRoot: THREE.Object3D | null = null;
+  /** 맵 밖에서 함께 밝기를 맞출 것 (주민: 루돌프 코) */
+  private glowExtras: THREE.Object3D[] = [];
 
   constructor(container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -128,15 +130,28 @@ export class Stage {
     this.renderer.setSize(w, h);
   }
 
+  /** 맵에 속하지 않지만 빛나는 재질이 있는 것 (주민). 맵을 바꿀 때마다 새로 준다 */
+  setGlowExtras(roots: THREE.Object3D[]): void {
+    this.glowExtras = roots;
+    this.applyGlow();
+  }
+
   /** 빛나는 재질(bakeModel이 만든 glow, 전구 줄)의 밝기: 낮에는 꺼진 듯 약하게, 밤에는 또렷하게 */
   private applyGlow(): void {
     const g = Math.min(1, this.lighting.glow);
-    this.mapRoot?.traverse((o) => {
-      const mats = (o as THREE.Mesh).material;
-      if (!mats) return;
-      for (const m of Array.isArray(mats) ? mats : [mats]) if ((m as THREE.MeshBasicMaterial).isMeshBasicMaterial && m.name === 'glow') (m as THREE.MeshBasicMaterial).color.setScalar(g);
-    });
+    for (const root of [this.mapRoot, ...this.glowExtras]) if (root) setGlowBrightness(root, g);
   }
+}
+
+/** root 아래 glow 재질의 밝기를 g(0~1)로 */
+function setGlowBrightness(root: THREE.Object3D, g: number): void {
+  root.traverse((o) => {
+    const mats = (o as THREE.Mesh).material;
+    if (!mats) return;
+    for (const m of Array.isArray(mats) ? mats : [mats]) {
+      if ((m as THREE.MeshBasicMaterial).isMeshBasicMaterial && m.name === 'glow') (m as THREE.MeshBasicMaterial).color.setScalar(g);
+    }
+  });
 }
 
 /** 하늘 공의 정점에 높이에 따라 색을 칠한다 (stops: 꼭대기 → 지평선, 지평선 아래는 마지막 색) */

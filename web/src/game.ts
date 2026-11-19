@@ -21,11 +21,11 @@ import { BalloonFloat, isBalloon } from './systems/balloon';
 import { EatingSequence } from './systems/eating';
 import { FoodBowl } from './systems/food';
 import { feed, tickHunger, type ActivityState } from './systems/hunger';
-import { Resident } from './systems/npc';
+import { Resident, type ResidentModels } from './systems/npc';
 import { findLanding } from './cat/jump';
 import { PoseHold } from './behavior/poseHold';
 import { isFree, pathClear, STEP_UP } from './world/collision';
-import type { Interest, Neighborhood } from './world/map/neighborhood';
+import { NPC_FACING, type Interest, type Neighborhood } from './world/map/neighborhood';
 import { disposeMap, mapById } from './world/maps';
 import { warmPurrSeconds } from './behavior/selector';
 import { BOX_FLOOR, BOX_SIT_DELAY, nextBoxStill, staysInBox } from './behavior/box';
@@ -95,7 +95,8 @@ export class Game {
   private readonly rng: Rng = createRng(Date.now() & 0xffff);
   private readonly stationBowl: FoodBowl;
   private readonly userBowl: FoodBowl;
-  private npc!: Resident;
+  /** 주민들 (보통 한 명, 눈 오는 광장은 산타·루돌프 둘) */
+  private residents: Resident[] = [];
   private readonly timer = new THREE.Timer();
 
   private time = 0;
@@ -146,6 +147,8 @@ export class Game {
     private readonly propModels: PropModels = {},
     /** 다른 사람 고양이 모델을 만든다 (glb를 복제, 없으면 도형 모델) */
     makeRemoteRig: (look: CatAppearance) => CatRig = (look) => new ProceduralCatRig(look),
+    /** Blender 주민 모델 (눈 오는 광장 산타·루돌프). 없으면 도형 주민 */
+    private readonly residentModels: ResidentModels = {},
   ) {
     this.save = loadSave(this.store) ?? defaultSave();
     this.stage = new Stage(container);
@@ -248,7 +251,7 @@ export class Game {
       this.userBowl.group.visible = false;
       this.userBowlHideAt = -1;
       disposeMap(this.map, this.propModels);
-      this.npc.group.removeFromParent();
+      for (const r of this.residents) r.group.removeFromParent();
       this.loadMap(def.id, null);
       this.connectNet(); // 새 맵의 방으로
       this.cam.setMode(this.cam.mode, this.ctrl.heading); // 카메라를 새 자리로 바로 옮긴다
@@ -277,12 +280,18 @@ export class Game {
     this.ctrl.placeIn(this.map.collision, start.x, start.z, this.map.spawn.heading);
     const fs = this.map.foodStation;
     this.stationBowl.moveTo(fs.x, fs.z + 0.02);
-    this.npc = new Resident(this.map.npcSpot.x, this.map.npcSpot.z, -2.4);
-    this.stage.scene.add(this.npc.group);
-    this.map.collision.circles.push({ x: this.npc.x, z: this.npc.z, r: 0.28 });
+    const spots = this.map.residents;
+    this.residents = spots
+      ? spots.map((s) => new Resident(s.x, s.z, s.facing, { model: this.residentModels[s.kind] ?? null, kind: s.kind, feeds: s.feeds }))
+      : [new Resident(this.map.npcSpot.x, this.map.npcSpot.z, NPC_FACING)];
+    for (const r of this.residents) {
+      this.stage.scene.add(r.group);
+      this.map.collision.circles.push({ x: r.x, z: r.z, r: r.radius });
+    }
+    this.stage.setGlowExtras(this.residents.map((r) => r.group)); // 루돌프 코: 밤에 또렷하게
     this.gazePoints = [
       ...this.map.interests.filter((i) => GAZE_HEIGHT[i.kind] !== undefined).map((i) => ({ x: i.x, y: GAZE_HEIGHT[i.kind]!, z: i.z })),
-      { x: this.npc.x, y: 1.55, z: this.npc.z }, // 주민 얼굴
+      ...this.residents.map((r) => ({ x: r.x, y: r.faceHeight, z: r.z })), // 주민 얼굴
     ];
   }
 
@@ -746,7 +755,9 @@ export class Game {
     this.save.hunger = tickHunger(this.save.hunger, dt, state);
 
     // 주민: 고양이가 다가오면 빈 그릇을 채워 준다
-    if (this.npc.update(now, dt, this.ctrl, !this.stationBowl.filled)) {
+    // 모든 주민을 매 프레임 움직인 뒤(고개·손 흔들기), 그중 하나라도 채울 때가 됐는지 본다
+    const updates = this.residents.map((r) => r.update(now, dt, this.ctrl, !this.stationBowl.filled));
+    if (updates.includes(true)) {
       this.stationBowl.setFilled(true);
       this.audio.meow('hungry'); // 먹이를 채워 주는 주민에게 조르는 울음
     }

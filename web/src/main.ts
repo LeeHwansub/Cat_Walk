@@ -7,6 +7,7 @@ import type { CatAppearance } from './cat/appearance';
 import { ProceduralCatRig } from './cat/ProceduralCatRig';
 import { SkinnedCatRig } from './cat/SkinnedCatRig';
 import { loadPropModels, type PropModels } from './world/propModels';
+import { loadResidentModels } from './systems/npc';
 import { bindUi } from './ui/ui';
 
 const container = document.getElementById('app')!;
@@ -20,6 +21,8 @@ async function boot(): Promise<void> {
   let liePoses: THREE.Object3D | null = null;
   // 맵 소품 모델 (Polyfork, 시범): 고양이 모델과 함께 불러온다. 실패한 것은 상자로 대신한다
   const propsLoading = loadPropModels(new GLTFLoader(), import.meta.env.BASE_URL);
+  // 눈 오는 광장 주민 (산타·루돌프, Blender 모델). 실패하면 도형 주민
+  const residentsLoading = loadResidentModels(new GLTFLoader(), import.meta.env.BASE_URL);
   if (new URLSearchParams(location.search).get('rig') !== 'procedural') {
     try {
       [catModel, runMotion, groomMotion, liePoses] = await Promise.all([loadCatModel(), loadRunMotion(), loadMotion(CAT_GROOM_URL), loadMotion(CAT_POSES_URL)]);
@@ -28,6 +31,7 @@ async function boot(): Promise<void> {
     }
   }
   const propModels: PropModels = await propsLoading;
+  const residentModels = await residentsLoading;
   const motions = { run: runMotion, groom: groomMotion, poses: liePoses };
   // 다른 사람 고양이(멀티플레이, D-59)용 원본: 내 고양이가 모델 장면을 가져다 쓰기 전에 복제해 둔다. 동작 파일은 읽기만 해서 함께 쓴다
   const template = catModel ? cloneSkinned(catModel) : null;
@@ -38,7 +42,7 @@ async function boot(): Promise<void> {
     scene.animations = template.animations; // 걷기 클립
     return new SkinnedCatRig(look, scene, motions);
   };
-  const game = new Game(container, catModel, motions, propModels, makeRemoteRig);
+  const game = new Game(container, catModel, motions, propModels, makeRemoteRig, residentModels);
   bindUi(game);
   game.start();
   // 개발 서버에서만 브라우저 점검용으로 노출한다 (프로덕션 빌드에서는 제거됨)
